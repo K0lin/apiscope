@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APIScope - Upload OpenAPI Documentation</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1>APIScope</h1>
+            <p>Upload and share your OpenAPI documentation</p>
+        </div>
+    </div>
+
+    <div class="container">
+        {{if .Message}}
+            <div class="alert {{if eq .MessageType "success"}}alert-success{{else}}alert-error{{end}}">
+                {{.Message}}
+            </div>
+        {{end}}
+
+        <div class="card">
+            <h2 style="margin-bottom: 20px;">Upload OpenAPI Document</h2>
+
+            <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                <div class="form-group">
+                    <label for="name">Document Name (optional)</label>
+                    <input type="text" class="form-control" id="name" name="name"
+                           placeholder="Leave empty to auto-detect from OpenAPI spec">
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description (optional)</label>
+                    <textarea class="form-control" id="description" name="description" rows="3"
+                              placeholder="Optional description for this API documentation"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="version">Version (optional)</label>
+                    <input type="text" class="form-control" id="version" name="version"
+                           placeholder="e.g., v1.0.0 (leave empty for auto-increment)">
+                </div>
+
+                <div class="tabs">
+                    <button type="button" class="tab active" onclick="switchTab('file')">Upload File</button>
+                    <button type="button" class="tab" onclick="switchTab('paste')">Paste Content</button>
+                </div>
+
+                <div id="file-tab" class="tab-content active">
+                    <div class="form-group">
+                        <div class="upload-area" onclick="document.getElementById('file').click()">
+                            <p style="margin-bottom: 10px; font-size: 18px;">Click to upload or drag and drop</p>
+                            <p style="color: #6b7280; font-size: 14px;">OpenAPI YAML or JSON files up to 50MB</p>
+                            <input type="file" id="file" name="file" accept=".yaml,.yml,.json" style="display: none;">
+                        </div>
+                        <div id="file-info" class="file-info" style="display: none;"></div>
+                    </div>
+                </div>
+
+                <div id="paste-tab" class="tab-content">
+                    <div class="form-group">
+                        <label for="yaml_content">OpenAPI YAML or JSON Content</label>
+                        <textarea class="form-control" id="yaml_content" name="yaml_content" rows="12"
+                                  style="font-family: 'Courier New', monospace; font-size: 14px;"
+                                  placeholder="openapi: 3.0.0&#10;info:&#10;  title: My API&#10;  version: 1.0.0&#10;paths:&#10;  /users:&#10;    get:&#10;      summary: Get users"></textarea>
+                    </div>
+                </div>
+
+                <input type="hidden" name="upload_method" id="upload_method" value="file">
+
+                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                    Generate Documentation Link
+                </button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 15px;">Features</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                <div style="text-align: center;">
+                    <h4 style="margin-bottom: 8px;">Shareable Links</h4>
+                    <p style="color: #6b7280; font-size: 14px;">Generate permanent links for your API documentation</p>
+                </div>
+                <div style="text-align: center;">
+                    <h4 style="margin-bottom: 8px;">Version Control</h4>
+                    <p style="color: #6b7280; font-size: 14px;">Support for multiple versions of your API specs</p>
+                </div>
+                <div style="text-align: center;">
+                    <h4 style="margin-bottom: 8px;">Interactive Docs</h4>
+                    <p style="color: #6b7280; font-size: 14px;">Beautiful Swagger UI for testing your API</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APIScope - {{.DocumentID}}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.10.3/swagger-ui.css" />
+    <style>
+        .swagger-container {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .version-selector {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            padding: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .version-dropdown {
+            padding: 0.5rem 0.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(5px);
+            font-size: 0.875rem;
+            min-width: 200px;
+            transition: all 0.3s ease;
+        }
+
+        .version-dropdown:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        #swagger-ui {
+            min-height: 600px;
+        }
+
+        .upload-form {
+            background: rgba(249, 250, 251, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .document-management {
+            border-top: 2px solid #e5e7eb;
+            padding-top: 2rem;
+            margin-top: 2rem;
+        }
+
+        .management-section {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .api-endpoints {
+            background: rgba(243, 244, 246, 0.8);
+            backdrop-filter: blur(5px);
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .endpoint-item {
+            margin-bottom: 1rem;
+        }
+
+        .endpoint-label {
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.25rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .endpoint-input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.8);
+            font-size: 0.75rem;
+            transition: all 0.3s ease;
+        }
+
+        .endpoint-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .danger-zone {
+            border-top: 2px solid #dc2626;
+            padding-top: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .danger-title {
+            color: #dc2626;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .version-selector {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 1rem;
+            }
+
+            .upload-form {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1>APIScope</h1>
+            <p>Interactive OpenAPI Documentation Platform</p>
+        </div>
+    </div>
+
+    <div class="container">
+        {{if .Message}}
+            <div class="alert {{if eq .MessageType "success"}}alert-success{{else if eq .MessageType "info"}}alert-info{{else}}alert-error{{end}}">
+                {{.Message}}
+            </div>
+        {{end}}
+
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h2>{{.DocumentID}}</h2>
+                    <p style="color: #6b7280; margin: 0; font-size: 0.875rem;">OpenAPI Specification Document</p>
+                </div>
+                <div>
+                    <a href="/" class="btn btn-secondary">← Back to Upload</a>
+                </div>
+            </div>
+
+            {{if .Content}}
+                <div class="swagger-container">
+                    {{if .Versions}}
+                    <div class="version-selector">
+                        <label for="version-select" style="font-weight: 600; color: #374151; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Version:</label>
+                        <select id="version-select" class="version-dropdown" onchange="switchVersion()">
+                            {{range .Versions}}
+                                <option value="{{.Version}}" {{if .IsLatest}}selected{{end}}>
+                                    {{.Version}}
+                                    {{if .IsLatest}} (Latest){{end}}
+                                    - {{.CreatedAt.Format "Jan 2, 2006"}}
+                                </option>
+                            {{end}}
+                        </select>
+                        <button class="btn btn-primary" onclick="showVersionForm()">+ Add New Version</button>
+                    </div>
+                    {{else}}
+                    <div class="version-selector">
+                        <label style="font-weight: 600; color: #374151; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Version: {{.SelectedVersion}}</label>
+                        <button class="btn btn-primary" onclick="showVersionForm()">+ Add New Version</button>
+                    </div>
+                    {{end}}
+
+                    <div id="swagger-ui"></div>
+                </div>
+            {{else}}
+                <div class="alert alert-info">
+                    <strong>No content available for this document.</strong>
+                    {{if .Versions}}
+                        <br>Available versions: {{len .Versions}}
+                    {{end}}
+                </div>
+            {{end}}
+
+            <!-- New Version Upload Form -->
+            <div id="version-form" class="version-upload-form" style="display: none;">
+                <h3 style="margin-bottom: 1.5rem; color: #374151;">Add New Version</h3>
+                <form method="POST" action="/upload" enctype="multipart/form-data">
+                    <input type="hidden" name="document_id" value="{{.DocumentID}}">
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="version">Version Name</label>
+                            <input type="text" class="form-control" id="version" name="version"
+                                   placeholder="e.g., v2.0.0, 2024-01-15" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="upload_method_select">Upload Method</label>
+                            <select class="form-control" id="upload_method_select" name="upload_method" onchange="toggleUploadMethod()">
+                                <option value="paste">Paste Content</option>
+                                <option value="file">Upload File</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Paste Content -->
+                    <div id="paste-method" class="form-group">
+                        <label for="yaml_content">OpenAPI Specification Content</label>
+                        <textarea class="form-control" id="yaml_content" name="yaml_content" rows="12"
+                                  style="font-family: 'Courier New', monospace; font-size: 0.875rem;"
+                                  placeholder="Paste your OpenAPI specification here..."></textarea>
+                    </div>
+
+                    <!-- File Upload -->
+                    <div id="file-method" class="form-group" style="display: none;">
+                        <label for="file">Upload OpenAPI File</label>
+                        <div class="upload-area" onclick="document.getElementById('version-file').click()">
+                            <p style="margin-bottom: 0.5rem; font-weight: 500;">Click to select file</p>
+                            <p style="color: #6b7280; font-size: 0.875rem;">YAML or JSON files up to 50MB</p>
+                        </div>
+                        <input type="file" id="version-file" name="file" accept=".yaml,.yml,.json" style="display: none;">
+                        <div id="version-file-info" class="file-info" style="display: none;"></div>
+                    </div>
+
+                    <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                        <button type="submit" class="btn btn-primary">Upload Version</button>
+                        <button type="button" class="btn btn-secondary" onclick="hideVersionForm()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Document Management -->
+            <div class="document-management">
+                <details>
+                    <summary style="cursor: pointer; font-weight: 600; margin-bottom: 1.5rem; color: #374151; font-size: 1.125rem;">Document Management</summary>
+
+                    <div class="management-section">
+                        <h4 style="margin-bottom: 1rem; color: #374151; font-size: 1rem;">API Endpoints</h4>
+                        <div class="api-endpoints">
+                            <div class="endpoint-item">
+                                <div class="endpoint-label">Content API:</div>
+                                <input type="text" class="endpoint-input" readonly
+                                       value="http://localhost:8080/api/document/{{.DocumentID}}/content"
+                                       onclick="copyToClipboard(this)">
+                            </div>
+                            <div class="endpoint-item">
+                                <div class="endpoint-label">Versions API:</div>
+                                <input type="text" class="endpoint-input" readonly
+                                       value="http://localhost:8080/api/document/{{.DocumentID}}/versions"
+                                       onclick="copyToClipboard(this)">
+                            </div>
+                            {{if .SelectedVersion}}
+                            <div class="endpoint-item">
+                                <div class="endpoint-label">Current Version:</div>
+                                <input type="text" class="endpoint-input" readonly
+                                       value="http://localhost:8080/api/document/{{.DocumentID}}/content?version={{.SelectedVersion}}"
+                                       onclick="copyToClipboard(this)">
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <div class="management-section danger-zone">
+                        <div class="danger-title">Danger Zone</div>
+                        <form method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this document and all its versions? This action cannot be undone.');">
+                            <input type="hidden" name="action" value="delete">
+                            <button type="submit" class="btn btn-danger">Delete Document</button>
+                        </form>
+                    </div>
+                </details>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/swagger-ui-dist@5.10.3/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+    <!-- Hidden element to store API spec content -->
+    {{if .Content}}
+    <div id="api-spec-content" style="display: none;">{{.Content}}</div>
+    {{end}}
+
+    <script>
+        let swaggerUI;
+
+        // Initialize Swagger UI
+        function initSwaggerUI() {
+            const contentElement = document.getElementById('api-spec-content');
+            const hasContent = contentElement && contentElement.textContent.trim();
+
+            if (hasContent) {
+                try {
+                    const specContent = contentElement.textContent.trim();
+                    let parsedSpec;
+
+                    // Try to parse as JSON first
+                    try {
+                        parsedSpec = JSON.parse(specContent);
+                    } catch (jsonError) {
+                        // If JSON parsing fails, try YAML
+                        try {
+                            parsedSpec = jsyaml.load(specContent);
+                        } catch (yamlError) {
+                            throw new Error('Content is neither valid JSON nor YAML: ' + yamlError.message);
+                        }
+                    }
+
+                    swaggerUI = SwaggerUIBundle({
+                        dom_id: '#swagger-ui',
+                        spec: parsedSpec,
+                        deepLinking: true,
+                        presets: [
+                            SwaggerUIBundle.presets.apis,
+                            SwaggerUIBundle.presets.standalone
+                        ],
+                        plugins: [
+                            SwaggerUIBundle.plugins.DownloadUrl
+                        ],
+                        validatorUrl: null,
+                        tryItOutEnabled: true
+                    });
+                } catch (e) {
+                    console.error('Swagger UI Error:', e);
+                    document.getElementById('swagger-ui').innerHTML =
+                        '<div style="padding: 2rem; color: #dc2626; text-align: center;">' +
+                        '<h4 style="color: #dc2626; margin-bottom: 1rem;">Error loading OpenAPI specification</h4>' +
+                        '<p style="color: #6b7280; margin-bottom: 1rem;">' + e.message + '</p>' +
+                        '<details style="text-align: left;">' +
+                        '<summary style="cursor: pointer; color: #374151; font-weight: 500;">Raw content (click to expand)</summary>' +
+                        '<pre style="background: rgba(243, 244, 246, 0.8); padding: 1rem; border-radius: 8px; overflow: auto; max-height: 300px; margin-top: 1rem; font-size: 0.875rem;">' +
+                        (contentElement ? contentElement.textContent : 'No content found') +
+                        '</pre>' +
+                        '</details>' +
+                        '</div>';
+                }
+            } else {
+                document.getElementById('swagger-ui').innerHTML =
+                    '<div style="padding: 2rem; color: #6b7280; text-align: center;">' +
+                    '<h4 style="color: #374151; margin-bottom: 1rem;">No content available</h4>' +
+                    '<p style="margin-bottom: 0.5rem;">The selected version does not have any content to display.</p>' +
+                    '<p style="font-size: 0.875rem;">Document ID: {{.DocumentID}}</p>' +
+                    '{{if .SelectedVersion}}<p style="font-size: 0.875rem;">Selected Version: {{.SelectedVersion}}</p>{{end}}' +
+                    '</div>';
+            }
+        }
+
+        // Switch version
+        function switchVersion() {
+            const selectedVersion = document.getElementById('version-select').value;
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('version', selectedVersion);
+            window.location.href = currentUrl.toString();
+        }
+
+        // Form functions for version upload
+        function showVersionForm() {
+            const form = document.getElementById('version-form');
+            if (form) {
+                form.style.display = 'block';
+                form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+                // Focus management for accessibility
+                const firstInput = form.querySelector('input:not([type="hidden"])');
+                if (firstInput) {
+                    setTimeout(() => firstInput.focus(), 300);
+                }
+            }
+        }
+
+        function hideVersionForm() {
+            const form = document.getElementById('version-form');
+            if (form) {
+                form.style.display = 'none';
+                // Reset form
+                const formElement = form.querySelector('form');
+                if (formElement) {
+                    formElement.reset();
+                    // Reset upload method to default
+                    toggleUploadMethod();
+                }
+            }
+        }
+
+        // Close form when clicking outside (optional - can be removed if not wanted)
+        // document.addEventListener('click', function(event) {
+        //     const form = document.getElementById('version-form');
+        //     if (form && form.style.display === 'block' && !form.contains(event.target) &&
+        //         !event.target.closest('.btn') && event.target.id !== 'version-select') {
+        //         hideVersionForm();
+        //     }
+        // });
+
+        // Close form on escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                hideVersionForm();
+            }
+        });
+
+        // Toggle upload method with improved UX
+        function toggleUploadMethod() {
+            const methodSelect = document.getElementById('upload_method_select');
+            const pasteMethod = document.getElementById('paste-method');
+            const fileMethod = document.getElementById('file-method');
+
+            if (methodSelect && pasteMethod && fileMethod) {
+                const method = methodSelect.value;
+
+                if (method === 'paste') {
+                    pasteMethod.style.display = 'block';
+                    fileMethod.style.display = 'none';
+                } else {
+                    pasteMethod.style.display = 'none';
+                    fileMethod.style.display = 'block';
+                }
+            }
+        }
+
+        // File input handling for new version with better feedback
+        document.addEventListener('DOMContentLoaded', function() {
+            const versionFileInput = document.getElementById('version-file');
+            const versionFileInfo = document.getElementById('version-file-info');
+
+            if (versionFileInput && versionFileInfo) {
+                versionFileInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        versionFileInfo.style.display = 'block';
+                        versionFileInfo.innerHTML = `
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="font-weight: 600; color: #374151;">Selected file:</span>
+                                <span style="color: #3b82f6;">${file.name}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+                                <span style="font-weight: 600; color: #374151;">Size:</span>
+                                <span style="color: #6b7280;">${formatFileSize(file.size)}</span>
+                            </div>
+                        `;
+                    } else {
+                        versionFileInfo.style.display = 'none';
+                    }
+                });
+            }
+
+            // Initialize upload method toggle
+            toggleUploadMethod();
+        });
+
+        // Copy to clipboard function with better feedback
+        function copyToClipboard(input) {
+            if (navigator.clipboard && window.isSecureContext) {
+                // Use modern clipboard API
+                navigator.clipboard.writeText(input.value).then(function() {
+                    showCopyFeedback(input);
+                });
+            } else {
+                // Fallback for older browsers
+                input.select();
+                document.execCommand('copy');
+                showCopyFeedback(input);
+            }
+        }
+
+        function showCopyFeedback(input) {
+            const originalValue = input.value;
+            const originalBg = input.style.backgroundColor;
+
+            input.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+            input.style.borderColor = '#3b82f6';
+
+            // Add a subtle animation
+            input.style.transform = 'scale(1.02)';
+            setTimeout(() => {
+                input.style.transform = 'scale(1)';
+                input.style.backgroundColor = originalBg;
+                input.style.borderColor = '';
+            }, 200);
+        }
+
+        // Format file size
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Initialize Swagger UI when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initSwaggerUI();
+        });
+    </script>
+</body>
+</html>
