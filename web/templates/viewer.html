@@ -266,21 +266,24 @@
                             <div class="endpoint-item">
                                 <div class="endpoint-label">Content API:</div>
                                 <input type="text" class="endpoint-input" readonly
-                                       value="http://localhost:8080/api/document/{{.DocumentID}}/content"
-                                       onclick="copyToClipboard(this)">
+                                    id="content-api"
+                                    value=""
+                                    onclick="copyToClipboard(this)">
                             </div>
                             <div class="endpoint-item">
                                 <div class="endpoint-label">Versions API:</div>
                                 <input type="text" class="endpoint-input" readonly
-                                       value="http://localhost:8080/api/document/{{.DocumentID}}/versions"
-                                       onclick="copyToClipboard(this)">
+                                    id="versions-api"
+                                    value=""
+                                    onclick="copyToClipboard(this)">
                             </div>
                             {{if .SelectedVersion}}
                             <div class="endpoint-item">
                                 <div class="endpoint-label">Current Version:</div>
                                 <input type="text" class="endpoint-input" readonly
-                                       value="http://localhost:8080/api/document/{{.DocumentID}}/content?version={{.SelectedVersion}}"
-                                       onclick="copyToClipboard(this)">
+                                    id="current-version-api"
+                                    value=""
+                                    onclick="copyToClipboard(this)">
                             </div>
                             {{end}}
                         </div>
@@ -515,6 +518,30 @@
         document.addEventListener('DOMContentLoaded', function() {
             initSwaggerUI();
         });
+
+        //populating API endpoints
+        document.addEventListener('DOMContentLoaded', function () {
+           const baseURL = window.location.origin;
+            const documentID = "{{.DocumentID}}";
+            const selectedVersion = "{{.SelectedVersion}}";
+
+            const contentInput = document.getElementById('content-api');
+            const versionsInput = document.getElementById('versions-api');
+            const currentVersionInput = document.getElementById('current-version-api');
+
+            if (contentInput) {
+                contentInput.value = baseURL + "/api/document/" + documentID + "/content";
+            }
+
+            if (versionsInput) {
+                versionsInput.value = baseURL + "/api/document/" + documentID + "/versions";
+            }
+
+            if (currentVersionInput && selectedVersion !== "") {
+                currentVersionInput.value = baseURL + "/api/document/" + documentID + "/content?version=" + selectedVersion;
+            }
+        });
     </script>
 </body>
+
 </html>
