@@ -25,6 +25,31 @@
             flex-wrap: wrap;
         }
 
+        .sdk-generator {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            margin-top: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 768px) {
+            .sdk-generator {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .version-selector {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 1rem;
+            }
+        }
+
         .version-dropdown {
             padding: 0.5rem 0.75rem;
             border: 2px solid #e5e7eb;
@@ -189,11 +214,27 @@
                             {{end}}
                         </select>
                         <button class="btn btn-primary" onclick="showVersionForm()">+ Add New Version</button>
+                        <div class="sdk-generator">
+                            <label for="language-select" style="font-weight: 600; color: #374151; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Generate SDK:</label>
+                            <select id="language-select" class="version-dropdown" style="min-width: 150px;">
+                                <option value="">Select Language...</option>
+                            </select>
+                            <input type="text" id="package-name" class="version-dropdown" placeholder="Package name (e.g., packageName)" style="min-width: 150px;">
+                            <button class="btn btn-success" onclick="generateSDK()" id="generate-btn" disabled>Generate & Download</button>
+                        </div>
                     </div>
                     {{else}}
                     <div class="version-selector">
                         <label style="font-weight: 600; color: #374151; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Version: {{.SelectedVersion}}</label>
                         <button class="btn btn-primary" onclick="showVersionForm()">+ Add New Version</button>
+                        <div class="sdk-generator">
+                            <label for="language-select-single" style="font-weight: 600; color: #374151; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Generate SDK:</label>
+                            <select id="language-select-single" class="version-dropdown" style="min-width: 150px;">
+                                <option value="">Select Language...</option>
+                            </select>
+                            <input type="text" id="package-name-single" class="version-dropdown" placeholder="Package name (e.g., packageName)" style="min-width: 150px;">
+                            <button class="btn btn-success" onclick="generateSDK()" id="generate-btn-single" disabled>Generate & Download</button>
+                        </div>
                     </div>
                     {{end}}
 
@@ -517,6 +558,7 @@
         // Initialize Swagger UI when page loads
         document.addEventListener('DOMContentLoaded', function() {
             initSwaggerUI();
+            loadAvailableLanguages();
         });
 
         //populating API endpoints
@@ -541,6 +583,204 @@
                 currentVersionInput.value = baseURL + "/api/document/" + documentID + "/content?version=" + selectedVersion;
             }
         });
+
+        // SDK Generation functions
+        async function loadAvailableLanguages() {
+            // Check if OpenAPI Generator is enabled
+            const generatorEnabled = {{.OpenAPIGeneratorEnabled}};
+            const generatorServer = "{{.OpenAPIGeneratorServer}}";
+
+            if (!generatorEnabled) {
+                console.log('OpenAPI Generator is disabled');
+                const sdkGenerators = document.querySelectorAll('.sdk-generator');
+                sdkGenerators.forEach(gen => gen.style.display = 'none');
+                return;
+            }
+
+            console.log('Loading available languages from:', generatorServer);
+            try {
+                const response = await fetch(`${generatorServer}/api/gen/clients`);
+                console.log('Response status:', response.status);
+                const data = await response.json();
+                console.log('Response data:', data);
+
+                if (response.ok && Array.isArray(data)) {
+                    const languageSelects = [
+                        document.getElementById('language-select'),
+                        document.getElementById('language-select-single')
+                    ].filter(Boolean);
+
+                    console.log('Found language selects:', languageSelects.length);
+
+                    languageSelects.forEach(select => {
+                        // Clear existing options except the first one
+                        while (select.children.length > 1) {
+                            select.removeChild(select.lastChild);
+                        }
+
+                        // Add language options - data is array of strings
+                        data.forEach(langName => {
+                            const option = document.createElement('option');
+                            option.value = langName;
+                            option.textContent = langName;
+                            option.title = `${langName} client generator`;
+                            select.appendChild(option);
+                        });
+
+                        // Enable generate button when language is selected
+                        select.addEventListener('change', function() {
+                            const generateBtn = select.id === 'language-select' ?
+                                document.getElementById('generate-btn') :
+                                document.getElementById('generate-btn-single');
+
+                            if (generateBtn) {
+                                generateBtn.disabled = !this.value;
+                            }
+                        });
+                    });
+                } else {
+                    console.warn('Failed to load available languages:', data.error || 'Unknown error');
+                    // Show SDK generators even if service is not available for debugging
+                    const sdkGenerators = document.querySelectorAll('.sdk-generator');
+                    sdkGenerators.forEach(gen => {
+                        gen.style.display = 'flex';
+                        gen.style.border = '2px solid red'; // Debug styling
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading available languages:', error);
+                // Show SDK generators even if there's an error for debugging
+                const sdkGenerators = document.querySelectorAll('.sdk-generator');
+                sdkGenerators.forEach(gen => {
+                    gen.style.display = 'flex';
+                    gen.style.border = '2px solid orange'; // Debug styling
+                });
+            }
+        }
+
+        async function generateSDK() {
+            const languageSelect = document.getElementById('language-select') || document.getElementById('language-select-single');
+            const packageNameInput = document.getElementById('package-name') || document.getElementById('package-name-single');
+            const generateBtn = document.getElementById('generate-btn') || document.getElementById('generate-btn-single');
+
+            if (!languageSelect || !languageSelect.value) {
+                alert('Please select a language first');
+                return;
+            }
+
+            if (!packageNameInput || !packageNameInput.value.trim()) {
+                alert('Please enter a package name');
+                return;
+            }
+
+            const selectedLanguage = languageSelect.value;
+            const packageName = packageNameInput.value.trim();
+            const documentID = "{{.DocumentID}}";
+            const selectedVersion = "{{.SelectedVersion}}";
+            const generatorServer = "{{.OpenAPIGeneratorServer}}";
+
+            // Disable button and show loading state
+            generateBtn.disabled = true;
+            const originalText = generateBtn.textContent;
+            generateBtn.textContent = 'Generating...';
+
+            try {
+                // Get the OpenAPI spec URL for the current document
+                const baseURL = window.location.origin;
+                const openAPIUrl = `${baseURL}/api/document/${documentID}/content` +
+                    (selectedVersion ? `?version=${selectedVersion}` : '');
+
+                // Generate SDK using OpenAPI Generator server directly
+                const generateUrl = `${generatorServer}/api/gen/clients/${selectedLanguage}`;
+
+                const generateResponse = await fetch(generateUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        openAPIUrl: openAPIUrl,
+                        options: {
+                            packageName: packageName
+                        }
+                    })
+                });
+
+                const generateData = await generateResponse.json();
+
+                if (!generateResponse.ok) {
+                    throw new Error(generateData.error || 'Failed to generate SDK');
+                }
+
+                if (generateData.link) {
+                    // Update button text
+                    generateBtn.textContent = 'Downloading...';
+
+                    // Download the SDK directly from the generator server
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = generateData.link;
+                    downloadLink.download = `${documentID}-${selectedLanguage}-sdk.zip`;
+                    document.body.appendChild(downloadLink);
+                    downloadLink.click();
+                    document.body.removeChild(downloadLink);
+
+                    // Show success message
+                    showSDKMessage('SDK generated and download started successfully!', 'success');
+                } else {
+                    throw new Error('No download link received from generator');
+                }
+            } catch (error) {
+                console.error('Error generating SDK:', error);
+                showSDKMessage('Failed to generate SDK: ' + error.message, 'error');
+            } finally {
+                // Restore button state
+                generateBtn.disabled = false;
+                generateBtn.textContent = originalText;
+            }
+        }
+
+        function showSDKMessage(message, type) {
+            // Create or update message element
+            let messageElement = document.getElementById('sdk-message');
+            if (!messageElement) {
+                messageElement = document.createElement('div');
+                messageElement.id = 'sdk-message';
+                messageElement.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 1rem 1.5rem;
+                    border-radius: 8px;
+                    font-weight: 500;
+                    z-index: 1000;
+                    max-width: 400px;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                `;
+                document.body.appendChild(messageElement);
+            }
+
+            messageElement.textContent = message;
+            messageElement.className = type === 'success' ? 'alert-success' : 'alert-error';
+
+            if (type === 'success') {
+                messageElement.style.backgroundColor = '#d1fae5';
+                messageElement.style.color = '#065f46';
+                messageElement.style.border = '1px solid #a7f3d0';
+            } else {
+                messageElement.style.backgroundColor = '#fee2e2';
+                messageElement.style.color = '#991b1b';
+                messageElement.style.border = '1px solid #fca5a5';
+            }
+
+            messageElement.style.display = 'block';
+
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                if (messageElement) {
+                    messageElement.style.display = 'none';
+                }
+            }, 5000);
+        }
     </script>
 </body>
 

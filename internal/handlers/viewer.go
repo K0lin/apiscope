@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"APIScope/internal/config"
 	"APIScope/internal/models"
 	"APIScope/internal/services"
 	"fmt"
@@ -12,12 +13,14 @@ import (
 type ViewerHandler struct {
 	docService     *services.DocumentService
 	storageService *services.StorageService
+	config         *config.Config
 }
 
-func NewViewerHandler(docService *services.DocumentService, storageService *services.StorageService) *ViewerHandler {
+func NewViewerHandler(docService *services.DocumentService, storageService *services.StorageService, cfg *config.Config) *ViewerHandler {
 	return &ViewerHandler{
 		docService:     docService,
 		storageService: storageService,
+		config:         cfg,
 	}
 }
 
@@ -110,23 +113,25 @@ func (h *ViewerHandler) ViewDocument(c *gin.Context) {
 	var versions []gin.H
 	for _, version := range doc.Versions {
 		versions = append(versions, gin.H{
-			"ID":         version.ID,
-			"Version":    version.Version,
-			"CreatedAt":  version.CreatedAt,
-			"IsLatest":   version.IsLatest,
+			"ID":        version.ID,
+			"Version":   version.Version,
+			"CreatedAt": version.CreatedAt,
+			"IsLatest":  version.IsLatest,
 		})
 	}
 
 	templateData := gin.H{
-		"Title":         doc.Name,
-		"Document":      doc,
-		"Version":       targetVersion,
-		"Content":       content,
-		"DocumentID":    documentID,
-		"SelectedVersion": selectedVersion,
-		"Versions":      versions,
-		"Message":       message,
-		"MessageType":   messageType,
+		"Title":                   doc.Name,
+		"Document":                doc,
+		"Version":                 targetVersion,
+		"Content":                 content,
+		"DocumentID":              documentID,
+		"SelectedVersion":         selectedVersion,
+		"Versions":                versions,
+		"Message":                 message,
+		"MessageType":             messageType,
+		"OpenAPIGeneratorEnabled": h.config.OpenAPIGeneratorEnabled,
+		"OpenAPIGeneratorServer":  h.config.OpenAPIGeneratorServer,
 	}
 
 	c.HTML(http.StatusOK, "viewer.html", templateData)

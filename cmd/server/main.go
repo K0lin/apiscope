@@ -24,10 +24,11 @@ func main() {
 
 	docService := services.NewDocumentService()
 	storageService := services.NewStorageService(cfg)
+	openAPIGeneratorService := services.NewOpenAPIGeneratorService(cfg)
 
 	uploadHandler := handlers.NewUploadHandler(docService, storageService, cfg)
-	viewerHandler := handlers.NewViewerHandler(docService, storageService)
-	apiHandler := handlers.NewApiHandler(docService, storageService)
+	viewerHandler := handlers.NewViewerHandler(docService, storageService, cfg)
+	apiHandler := handlers.NewApiHandler(docService, storageService, openAPIGeneratorService)
 
 	router := gin.Default()
 

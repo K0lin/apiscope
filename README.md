@@ -8,6 +8,7 @@ A modern, web-based OpenAPI documentation platform built with Go and Gin. Upload
 - **🔗 Shareable Links**: Generate permanent, shareable links for your API documentation
 - **📋 Version Control**: Support for multiple versions of your API specifications
 - **👁️ Interactive Docs**: Beautiful Swagger UI for testing and exploring your APIs
+- **🛠️ SDK Generation**: Generate client SDKs in multiple programming languages using OpenAPI Generator
 - **💾 File Storage**: Secure local file storage with automatic organization
 - **🗄️ Database Integration**: Redis for fast metadata and version tracking
 - **🎨 Modern UI**: Clean, professional interface with responsive design
@@ -49,6 +50,10 @@ A modern, web-based OpenAPI documentation platform built with Go and Gin. Upload
    REDIS_ADDR=localhost:6379
    REDIS_PASSWORD=
    STORAGE_PATH=./storage/documents
+
+   # OpenAPI Generator Configuration
+   OPENAPI_GENERATOR_ENABLED=true
+   OPENAPI_GENERATOR_SERVER=https://api.openapi-generator.tech
    ```
 
 5. **Run the application:**
@@ -81,6 +86,26 @@ A modern, web-based OpenAPI documentation platform built with Go and Gin. Upload
 - View all versions of a document from the document viewer
 - Add new versions using the "Add New Version" button
 - Each version gets a unique URL for sharing
+
+### SDK Generation
+
+When enabled, APIScope provides built-in SDK generation capabilities:
+
+1. **Enable SDK Generation:**
+   - Set `OPENAPI_GENERATOR_ENABLED=true` in your `.env` file
+   - Configure `OPENAPI_GENERATOR_SERVER` to point to your OpenAPI Generator instance
+
+2. **Generate SDKs:**
+   - Navigate to any document viewer page
+   - Select a programming language from the SDK dropdown
+   - Enter a package name for your generated SDK
+   - Click "Generate & Download" to create and download the SDK
+
+3. **Supported Languages:**
+   - Python, Java, JavaScript, TypeScript, Go, PHP, Ruby, C#, and many more
+   - Full list depends on your OpenAPI Generator server configuration
+
+**Note:** For the SDK generation to work properly when using localhost, ensure your OpenAPI Generator server can reach your APIScope instance. Consider using network IP addresses instead of localhost when deploying.
 
 ### API Endpoints
 
@@ -121,6 +146,8 @@ apiscope/
 | `REDIS_ADDR` | `localhost:6379` | Redis server address |
 | `REDIS_PASSWORD` | `` | Redis password (if required) |
 | `STORAGE_PATH` | `./storage/documents` | File storage directory |
+| `OPENAPI_GENERATOR_ENABLED` | `false` | Enable/disable SDK generation feature |
+| `OPENAPI_GENERATOR_SERVER` | `` | URL of OpenAPI Generator server |
 
 ### File Upload Limits
 
@@ -169,6 +196,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Database**: Redis for high-performance data storage
 - **Frontend**: HTML5, CSS3, Vanilla JavaScript
 - **API Documentation**: Swagger UI
+- **SDK Generation**: OpenAPI Generator integration
 - **File Processing**: YAML/JSON parsing
 
 ## Support
@@ -184,5 +212,6 @@ If you find this project helpful, please consider:
 
 - [Gin Web Framework](https://gin-gonic.com/)
 - [Swagger UI](https://swagger.io/tools/swagger-ui/)
+- [OpenAPI Generator](https://openapi-generator.tech/)
 - [Redis](https://redis.io/)
 - [Go YAML library](https://gopkg.in/yaml.v3)

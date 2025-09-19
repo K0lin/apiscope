@@ -3,20 +3,23 @@ package handlers
 import (
 	"APIScope/internal/models"
 	"APIScope/internal/services"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
 type ApiHandler struct {
-	docService     *services.DocumentService
-	storageService *services.StorageService
+	docService              *services.DocumentService
+	storageService          *services.StorageService
+	openAPIGeneratorService *services.OpenAPIGeneratorService
 }
 
-func NewApiHandler(docService *services.DocumentService, storageService *services.StorageService) *ApiHandler {
+func NewApiHandler(docService *services.DocumentService, storageService *services.StorageService, openAPIGeneratorService *services.OpenAPIGeneratorService) *ApiHandler {
 	return &ApiHandler{
-		docService:     docService,
-		storageService: storageService,
+		docService:              docService,
+		storageService:          storageService,
+		openAPIGeneratorService: openAPIGeneratorService,
 	}
 }
 
@@ -104,4 +107,91 @@ func (h *ApiHandler) GetDocumentVersions(c *gin.Context) {
 		"document_id": doc.ID,
 		"versions":    versions,
 	})
+}
+
+func (h *ApiHandler) GetAvailableLanguages(c *gin.Context) {
+	if !h.openAPIGeneratorService.IsEnabled() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "OpenAPI Generator service is disabled",
+		})
+		return
+	}
+
+	languages, err := h.openAPIGeneratorService.GetAvailableLanguages()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to fetch available languages: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"languages": languages,
+	})
+}
+
+func (h *ApiHandler) GenerateSDK(c *gin.Context) {
+	if !h.openAPIGeneratorService.IsEnabled() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "OpenAPI Generator service is disabled",
+		})
+		return
+	}
+
+	documentID := c.Param("id")
+	generator := c.Param("generator")
+	requestedVersion := c.Query("version")
+
+	// Get the document content URL
+	baseURL := fmt.Sprintf("%s://%s", func() string {
+		if c.Request.TLS != nil {
+			return "https"
+		}
+		return "http"
+	}(), c.Request.Host)
+
+	contentURL := fmt.Sprintf("%s/api/document/%s/content", baseURL, documentID)
+	if requestedVersion != "" {
+		contentURL += "?version=" + requestedVersion
+	}
+
+	// Generate SDK
+	result, err := h.openAPIGeneratorService.GenerateSDK(generator, contentURL, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to generate SDK: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
+func (h *ApiHandler) DownloadSDK(c *gin.Context) {
+	if !h.openAPIGeneratorService.IsEnabled() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "OpenAPI Generator service is disabled",
+		})
+		return
+	}
+
+	downloadURL := c.Query("url")
+	if downloadURL == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Download URL is required",
+		})
+		return
+	}
+
+	data, err := h.openAPIGeneratorService.DownloadSDK(downloadURL)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to download SDK: " + err.Error(),
+		})
+		return
+	}
+
+	c.Header("Content-Type", "application/zip")
+	c.Header("Content-Disposition", "attachment; filename=sdk.zip")
+	c.Data(http.StatusOK, "application/zip", data)
 }
