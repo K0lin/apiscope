@@ -197,6 +197,41 @@ func (h *ApiHandler) DownloadSDK(c *gin.Context) {
 	c.Data(http.StatusOK, "application/zip", data)
 }
 
+// DownloadDocumentVersion serves the raw stored file for a specific version (attachment)
+func (h *ApiHandler) DownloadDocumentVersion(c *gin.Context) {
+	documentID := c.Param("id")
+	versionStr := c.Param("version")
+	if versionStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "version required"})
+		return
+	}
+
+	doc, err := h.docService.GetDocumentByID(documentID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "document not found"})
+		return
+	}
+	var target *models.Version
+	for i := range doc.Versions {
+		if doc.Versions[i].Version == versionStr {
+			target = &doc.Versions[i]
+			break
+		}
+	}
+	if target == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "version not found"})
+		return
+	}
+	content, err := h.storageService.GetFile(target.FilePath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot read file"})
+		return
+	}
+	// Force download
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s-%s.yaml\"", documentID, versionStr))
+	c.Data(http.StatusOK, "application/x-yaml", content)
+}
+
 // DeleteDocumentVersion deletes a single version (by human version string) if allowed.
 func (h *ApiHandler) DeleteDocumentVersion(c *gin.Context) {
 	// We don't have config reference here; route should be registered only if allowed.
