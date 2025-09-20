@@ -6,6 +6,7 @@ import (
 	"APIScope/internal/services"
 	"fmt"
 	"net/http"
+	"sort"
 
 	"github.com/gin-gonic/gin"
 )
@@ -109,7 +110,12 @@ func (h *ViewerHandler) ViewDocument(c *gin.Context) {
 		fmt.Printf("Content preview: %s\n", content[:previewLen])
 	}
 
-	// Prepare versions for template
+	// Sort versions by CreatedAt desc so newest first (latest should normally be first)
+	sort.Slice(doc.Versions, func(i, j int) bool {
+		return doc.Versions[i].CreatedAt.After(doc.Versions[j].CreatedAt)
+	})
+
+	// Prepare versions for template while marking which one is selected
 	var versions []gin.H
 	for _, version := range doc.Versions {
 		versions = append(versions, gin.H{
@@ -117,6 +123,7 @@ func (h *ViewerHandler) ViewDocument(c *gin.Context) {
 			"Version":   version.Version,
 			"CreatedAt": version.CreatedAt,
 			"IsLatest":  version.IsLatest,
+			"Selected":  version.Version == selectedVersion,
 		})
 	}
 
@@ -132,6 +139,7 @@ func (h *ViewerHandler) ViewDocument(c *gin.Context) {
 		"MessageType":             messageType,
 		"OpenAPIGeneratorEnabled": h.config.OpenAPIGeneratorEnabled,
 		"OpenAPIGeneratorServer":  h.config.OpenAPIGeneratorServer,
+		"AllowVersionDeletion":    h.config.AllowVersionDeletion,
 	}
 
 	c.HTML(http.StatusOK, "viewer.html", templateData)

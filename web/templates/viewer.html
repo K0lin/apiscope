@@ -206,14 +206,15 @@
                         <label for="version-select" style="font-weight: 600; color: #374151; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Version:</label>
                         <select id="version-select" class="version-dropdown" onchange="switchVersion()">
                             {{range .Versions}}
-                                <option value="{{.Version}}" {{if .IsLatest}}selected{{end}}>
-                                    {{.Version}}
-                                    {{if .IsLatest}} (Latest){{end}}
-                                    - {{.CreatedAt.Format "Jan 2, 2006"}}
+                                <option value="{{.Version}}" {{if .Selected}}selected{{end}}>
+                                    {{.Version}}{{if .IsLatest}} (Latest){{end}} - {{.CreatedAt.Format "Jan 2, 2006"}}
                                 </option>
                             {{end}}
                         </select>
                         <button class="btn btn-primary" onclick="showVersionForm()">+ Add New Version</button>
+                        {{if .AllowVersionDeletion}}
+                        <button class="btn btn-danger" id="delete-version-btn" onclick="deleteSelectedVersion()">Delete Version</button>
+                        {{end}}
                         <div class="sdk-generator">
                             <label for="language-select" style="font-weight: 600; color: #374151; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Generate SDK:</label>
                             <select id="language-select" class="version-dropdown" style="min-width: 150px;">
@@ -227,6 +228,9 @@
                     <div class="version-selector">
                         <label style="font-weight: 600; color: #374151; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Version: {{.SelectedVersion}}</label>
                         <button class="btn btn-primary" onclick="showVersionForm()">+ Add New Version</button>
+                        {{if .AllowVersionDeletion}}
+                        <button class="btn btn-danger" id="delete-version-btn-single" onclick="deleteSelectedVersion()" {{if not .SelectedVersion}}disabled{{end}}>Delete Version</button>
+                        {{end}}
                         <div class="sdk-generator">
                             <label for="language-select-single" style="font-weight: 600; color: #374151; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Generate SDK:</label>
                             <select id="language-select-single" class="version-dropdown" style="min-width: 150px;">
@@ -780,6 +784,41 @@
                     messageElement.style.display = 'none';
                 }
             }, 5000);
+        }
+
+        // Placeholder deletion logic (backend endpoint not yet implemented)
+        async function deleteSelectedVersion() {
+            const allow = {{if .AllowVersionDeletion}}true{{else}}false{{end}};
+            if (!allow) return;
+            const select = document.getElementById('version-select');
+            const documentID = "{{.DocumentID}}";
+            let version = "{{.SelectedVersion}}";
+            if (select) {
+                version = select.value;
+            }
+            if (!version) {
+                alert('No version selected to delete.');
+                return;
+            }
+            if (!confirm('Delete version ' + version + '? This cannot be undone.')) {
+                return;
+            }
+            try {
+                const resp = await fetch(`/api/document/${documentID}/version/${encodeURIComponent(version)}`, { method: 'DELETE' });
+                const data = await resp.json().catch(() => ({}));
+                if (!resp.ok) {
+                    alert('Failed to delete: ' + (data.error || resp.status));
+                    return;
+                }
+                // Reload page: if deleted latest, server will pick new latest; otherwise remove version param if it was selected
+                const url = new URL(window.location.href);
+                if (url.searchParams.get('version') === version) {
+                    url.searchParams.delete('version');
+                }
+                window.location.href = url.toString();
+            } catch (e) {
+                alert('Error deleting version: ' + e.message);
+            }
         }
     </script>
 </body>

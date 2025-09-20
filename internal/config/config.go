@@ -19,6 +19,7 @@ type Config struct {
 	MaxVersions             int
 	OpenAPIGeneratorEnabled bool
 	OpenAPIGeneratorServer  string
+	AllowVersionDeletion    bool
 }
 
 func Load() *Config {
@@ -30,6 +31,7 @@ func Load() *Config {
 
 	openAPIEnabled := getBoolEnv("OPENAPI_GENERATOR_ENABLED", false)
 	openAPIServer := getEnv("OPENAPI_GENERATOR_SERVER", "https://api.openapi-generator.tech")
+	allowVersionDeletion := getBoolEnv("ALLOW_VERSION_DELETION", false)
 
 	return &Config{
 		Port:                    getEnv("PORT", "8080"),
@@ -41,6 +43,7 @@ func Load() *Config {
 		MaxVersions:             20,
 		OpenAPIGeneratorEnabled: openAPIEnabled,
 		OpenAPIGeneratorServer:  openAPIServer,
+		AllowVersionDeletion:    allowVersionDeletion,
 	}
 }
 

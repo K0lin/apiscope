@@ -5,6 +5,7 @@ import (
 	"APIScope/internal/services"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 )
@@ -194,4 +195,46 @@ func (h *ApiHandler) DownloadSDK(c *gin.Context) {
 	c.Header("Content-Type", "application/zip")
 	c.Header("Content-Disposition", "attachment; filename=sdk.zip")
 	c.Data(http.StatusOK, "application/zip", data)
+}
+
+// DeleteDocumentVersion deletes a single version (by human version string) if allowed.
+func (h *ApiHandler) DeleteDocumentVersion(c *gin.Context) {
+	// We don't have config reference here; route should be registered only if allowed.
+	documentID := c.Param("id")
+	version := c.Param("version")
+	if version == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "version is required"})
+		return
+	}
+
+	// Get version list to identify file to delete
+	doc, err := h.docService.GetDocumentByID(documentID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "document not found"})
+		return
+	}
+
+	var filePath string
+	for _, v := range doc.Versions {
+		if v.Version == version {
+			filePath = v.FilePath
+			break
+		}
+	}
+	if filePath == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "version not found"})
+		return
+	}
+
+	if err := h.docService.DeleteVersion(documentID, version); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Remove file from storage silently
+	if filePath != "" {
+		_ = os.Remove(filePath)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "version deleted"})
 }

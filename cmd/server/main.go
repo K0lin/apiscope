@@ -58,6 +58,11 @@ func main() {
 	router.GET("/api/document/:id/content", apiHandler.GetDocumentContent)
 	router.GET("/api/document/:id/versions", apiHandler.GetDocumentVersions)
 
+	// Version deletion endpoint (conditional)
+	if cfg.AllowVersionDeletion {
+		router.DELETE("/api/document/:id/version/:version", apiHandler.DeleteDocumentVersion)
+	}
+
 	fmt.Printf("Server starting on port %s...\n", cfg.Port)
 	log.Fatal(router.Run(":" + cfg.Port))
 }
