@@ -23,6 +23,8 @@ type Config struct {
 	AllowVersionDeletion    bool
 	AllowVersionDownload    bool
 	AllowServerEditing      bool
+	AutoAdjustServerOrigin  bool
+	StripServers            bool
 	AllowedOrigins          []string
 	CORSAllowCredentials    bool
 	CORSAllowedMethods      []string
@@ -44,6 +46,8 @@ func Load() *Config {
 	allowVersionDeletion := getBoolEnv("ALLOW_VERSION_DELETION", false)
 	allowVersionDownload := getBoolEnv("ALLOW_VERSION_DOWNLOAD", true)
 	allowServerEditing := getBoolEnv("ALLOW_SERVER_EDITING", false)
+	autoAdjustServerOrigin := getBoolEnv("AUTO_ADJUST_SERVER_ORIGIN", false)
+	stripServers := getBoolEnv("STRIP_OPENAPI_SERVERS", false)
 	allowedOriginsRaw := getEnv("ALLOWED_ORIGINS", "*")
 	corsAllowCreds := getBoolEnv("CORS_ALLOW_CREDENTIALS", false)
 	allowedMethodsRaw := getEnv("CORS_ALLOWED_METHODS", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
@@ -69,6 +73,8 @@ func Load() *Config {
 		AllowVersionDeletion:    allowVersionDeletion,
 		AllowVersionDownload:    allowVersionDownload,
 		AllowServerEditing:      allowServerEditing,
+		AutoAdjustServerOrigin:  autoAdjustServerOrigin,
+		StripServers:            stripServers,
 		AllowedOrigins:          parseCSV(allowedOriginsRaw),
 		CORSAllowCredentials:    corsAllowCreds,
 		CORSAllowedMethods:      parseCSV(allowedMethodsRaw),

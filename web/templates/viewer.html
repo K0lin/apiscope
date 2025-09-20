@@ -372,6 +372,17 @@
     {{if .Content}}
     <div id="api-spec-content" style="display: none;">{{.Content}}</div>
     {{end}}
+    <div id="app-config"
+        data-gen="{{if .OpenAPIGeneratorEnabled}}true{{else}}false{{end}}"
+        data-genserver="{{.OpenAPIGeneratorServer}}"
+        data-del="{{if .AllowVersionDeletion}}true{{else}}false{{end}}"
+        data-dl="{{if .AllowVersionDownload}}true{{else}}false{{end}}"
+        data-srvedit="{{if .AllowServerEditing}}true{{else}}false{{end}}"
+        data-autoorigin="{{if .AutoAdjustServerOrigin}}true{{else}}false{{end}}"
+         data-stripservers="{{if .StripServers}}true{{else}}false{{end}}"
+        data-doc="{{.DocumentID}}"
+        data-ver="{{.SelectedVersion}}"
+        style="display:none;"></div>
 
     <script>
     let swaggerUI;
@@ -400,6 +411,13 @@
                         }
                     }
 
+                    // Apply server stripping if configured
+                    if (window.APISCOPE_CFG && window.APISCOPE_CFG.stripServers) {
+                        parsedSpec = applyStripServers(parsedSpec);
+                    }
+
+                    const disableTryIt = window.APISCOPE_CFG && window.APISCOPE_CFG.stripServers;
+
                     swaggerUI = SwaggerUIBundle({
                         dom_id: '#swagger-ui',
                         spec: parsedSpec,
@@ -412,12 +430,26 @@
                             SwaggerUIBundle.plugins.DownloadUrl
                         ],
                         validatorUrl: null,
-                        tryItOutEnabled: true
+                        tryItOutEnabled: !disableTryIt,
+                        supportedSubmitMethods: disableTryIt ? [] : ['get','put','post','delete','options','head','patch','trace']
                     });
                     originalSpec = JSON.parse(JSON.stringify(parsedSpec));
                     workingSpec = parsedSpec;
-                    if (window.APISCOPE_CFG && window.APISCOPE_CFG.allowServerEditing) {
+                    // Optional auto-adjust of first server origin
+                    if (window.APISCOPE_CFG && window.APISCOPE_CFG.autoAdjustServerOrigin && !disableTryIt) {
+                        maybeAutoAdjustServerOrigin();
+                    }
+                    if (window.APISCOPE_CFG && window.APISCOPE_CFG.allowServerEditing && !disableTryIt) {
                         renderServersList();
+                    }
+                    if (disableTryIt) {
+                        console.log('[APIScope] Try It Out disabled because servers were stripped.');
+                        const editSection = document.querySelector('.management-section h4');
+                        // Optionally hide server editing UI if present
+                        if (document.getElementById('servers-list')) {
+                            const srvMgmt = document.getElementById('servers-list').closest('.management-section');
+                            if (srvMgmt) srvMgmt.style.display = 'none';
+                        }
                     }
                 } catch (e) {
                     console.error('Swagger UI Error:', e);
@@ -618,8 +650,8 @@
         // SDK Generation functions
         async function loadAvailableLanguages() {
             // Check if OpenAPI Generator is enabled
-            const generatorEnabled = {{.OpenAPIGeneratorEnabled}};
-            const generatorServer = "{{.OpenAPIGeneratorServer}}";
+            const generatorEnabled = window.APISCOPE_CFG && window.APISCOPE_CFG.openapiGeneratorEnabled;
+            const generatorServer = window.APISCOPE_CFG && window.APISCOPE_CFG.openapiGeneratorServer;
 
             if (!generatorEnabled) {
                 console.log('OpenAPI Generator is disabled');
@@ -815,11 +847,11 @@
 
         // Placeholder deletion logic (backend endpoint not yet implemented)
     async function deleteSelectedVersion() {
-            const allow = {{if .AllowVersionDeletion}}true{{else}}false{{end}};
+            const allow = window.APISCOPE_CFG && window.APISCOPE_CFG.allowVersionDeletion;
             if (!allow) return;
             const select = document.getElementById('version-select');
-            const documentID = "{{.DocumentID}}";
-            let version = "{{.SelectedVersion}}";
+            const documentID = window.APISCOPE_CFG.documentID;
+            let version = window.APISCOPE_CFG.selectedVersion;
             if (select) {
                 version = select.value;
             }
@@ -917,19 +949,59 @@
         }
 
         // Expose config safely (consolidated)
-        window.APISCOPE_CFG = {
-            openapiGeneratorEnabled: {{if .OpenAPIGeneratorEnabled}}true{{else}}false{{end}},
-            allowVersionDeletion: {{if .AllowVersionDeletion}}true{{else}}false{{end}},
-            allowVersionDownload: {{if .AllowVersionDownload}}true{{else}}false{{end}},
-            allowServerEditing: {{if .AllowServerEditing}}true{{else}}false{{end}}
-        };
+        (function initConfig(){
+            const el = document.getElementById('app-config');
+            if(!el){ window.APISCOPE_CFG = {}; return; }
+            window.APISCOPE_CFG = {
+                openapiGeneratorEnabled: el.dataset.gen === 'true',
+                openapiGeneratorServer: el.dataset.genserver || '',
+                allowVersionDeletion: el.dataset.del === 'true',
+                allowVersionDownload: el.dataset.dl === 'true',
+                allowServerEditing: el.dataset.srvedit === 'true',
+                autoAdjustServerOrigin: el.dataset.autoorigin === 'true',
+                stripServers: el.dataset.stripservers === 'true',
+                documentID: el.dataset.doc || '',
+                selectedVersion: el.dataset.ver || ''
+            };
+        })();
+
+        function applyStripServers(spec){
+            if (!window.APISCOPE_CFG || !window.APISCOPE_CFG.stripServers) return spec;
+            if (spec.servers) {
+                console.log('[APIScope] Stripping servers (STRIP_OPENAPI_SERVERS=true).');
+                delete spec.servers;
+            }
+            return spec;
+        }
+
+        function maybeAutoAdjustServerOrigin() {
+            if (!window.APISCOPE_CFG || !window.APISCOPE_CFG.autoAdjustServerOrigin) return;
+            if (!workingSpec || !workingSpec.servers || !workingSpec.servers.length) return;
+            try {
+                const currentOrigin = window.location.origin; // e.g. http://localhost:8181
+                // Only adjust first server if its host:port differs but path structure same idea
+                const first = workingSpec.servers[0];
+                if (!first || !first.url) return;
+                const urlObj = new URL(first.url, currentOrigin); // tolerate relative
+                const firstOrigin = urlObj.origin; // original server origin
+                if (firstOrigin !== currentOrigin) {
+                    // Replace only the origin portion, preserve path and query if present
+                    const newUrl = currentOrigin + urlObj.pathname + urlObj.search;
+                    console.log('[APIScope] Auto-adjust server origin', first.url, '=>', newUrl);
+                    first.url = newUrl;
+                    swaggerUI && swaggerUI.specActions.updateJsonSpec(workingSpec);
+                }
+            } catch (e) {
+                console.debug('AutoAdjustServerOrigin skipped:', e.message);
+            }
+        }
 
         async function downloadSelectedVersion() {
-            const allow = {{if .AllowVersionDownload}}true{{else}}false{{end}};
+            const allow = window.APISCOPE_CFG && window.APISCOPE_CFG.allowVersionDownload;
             if (!allow) return;
             const select = document.getElementById('version-select');
-            const documentID = "{{.DocumentID}}";
-            let version = "{{.SelectedVersion}}";
+            const documentID = window.APISCOPE_CFG.documentID;
+            let version = window.APISCOPE_CFG.selectedVersion;
             if (select) { version = select.value; }
             if (!version) { alert('No version selected to download.'); return; }
             const url = `/api/document/${documentID}/version/${encodeURIComponent(version)}/download`;

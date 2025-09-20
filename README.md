@@ -12,8 +12,11 @@ A modern, web-based OpenAPI documentation platform built with Go and Gin. Upload
 - **⬇️ Version Download (Optional)**: Download the raw stored YAML for the currently selected version.
 - **🛠️ SDK Generation**: Generate client SDKs in multiple languages via OpenAPI Generator (toggleable).
 - **🧩 Live Servers Editing (Optional)**: Temporarily add/remove `servers` entries client‑side for quick local testing (non‑persistent) and download modified spec.
+- **🔁 Auto Server Origin Adjust (Optional)**: When enabled, the first server entry matching the spec's original host:port is auto-rewritten to the current viewer origin (helps when specs hardcode a different localhost port).
+ - **🚫 Strip Servers (Optional)**: Completely remove all `servers` entries from displayed specs (read-only view, disables Try It Out requests, overrides server editing & auto-adjust).
+- **🚫 Strip Servers (Optional)**: Completely remove all `servers` entries from displayed specs (read-only view, disables Try It Out requests, overrides server editing & auto-adjust).
 - **🌐 CORS Configuration**: Fine‑grained control over origins, methods, headers, credentials, and max age.
-- **� File Storage**: Local organized storage per document/version ID.
+- **🗄️ File Storage**: Local organized storage per document/version ID.
 - **⚡ Redis Metadata**: Fast document + version metadata tracking in Redis.
 - **🩺 Health Endpoint**: Simple `/health` JSON endpoint for monitoring.
 - **🎨 Modern UI**: Clean, responsive, minimal dependencies.
@@ -62,6 +65,8 @@ A modern, web-based OpenAPI documentation platform built with Go and Gin. Upload
    ALLOW_VERSION_DELETION=false
    ALLOW_VERSION_DOWNLOAD=true
    ALLOW_SERVER_EDITING=false
+   AUTO_ADJUST_SERVER_ORIGIN=false
+   STRIP_OPENAPI_SERVERS=false
 
    # CORS
    ALLOWED_ORIGINS=*
@@ -139,6 +144,17 @@ APIScope provides REST API endpoints for programmatic access:
 
 ### Live Servers Editing (Client‑Side)
 If `ALLOW_SERVER_EDITING=true` you can add/remove `servers` entries directly in the viewer for ad‑hoc testing (not persisted). You may then download the modified spec for local reuse.
+If `STRIP_OPENAPI_SERVERS=true`, this feature is automatically disabled.
+
+### Read-Only Mode (Strip Servers)
+If `STRIP_OPENAPI_SERVERS=true`:
+
+- All `servers` entries are removed from the rendered spec.
+- Try It Out / Execute buttons are disabled (no outbound calls).
+- `ALLOW_SERVER_EDITING` and `AUTO_ADJUST_SERVER_ORIGIN` are ignored.
+- Ideal for public/internal sharing where execution should be blocked.
+
+To combine with version download: You can still download raw stored specs (if `ALLOW_VERSION_DOWNLOAD=true`).
 
 ### CORS Configuration
 Customize CORS via environment variables. Example tightened production config:
@@ -189,6 +205,8 @@ apiscope/
 | `ALLOW_VERSION_DELETION` | `false` | Enable Delete Version button/API |
 | `ALLOW_VERSION_DOWNLOAD` | `true` | Enable Download Version button/API |
 | `ALLOW_SERVER_EDITING` | `false` | Enable client-side servers editor |
+| `AUTO_ADJUST_SERVER_ORIGIN` | `false` | Auto-rewrite first server origin to current host/port |
+| `STRIP_OPENAPI_SERVERS` | `false` | Strip all servers; disables Try It Out & overrides editing/auto-adjust |
 | `ALLOWED_ORIGINS` | `*` | Comma-separated allowed CORS origins |
 | `CORS_ALLOW_CREDENTIALS` | `false` | Allow credentialed CORS requests |
 | `CORS_ALLOWED_METHODS` | defaults list | Allowed CORS methods |
