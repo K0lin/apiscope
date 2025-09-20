@@ -170,3 +170,65 @@ func (s *DocumentService) saveVersion(version *models.Version) error {
 	key := fmt.Sprintf("version:%s:%s", version.DocumentID, version.ID)
 	return database.GetRedisClient().Set(database.GetContext(), key, versionJSON, 0).Err()
 }
+
+// DeleteVersion removes a version identified by its human version string (e.g., v1, v2)
+// and updates the latest flag on the newest remaining version (by CreatedAt) if needed.
+func (s *DocumentService) DeleteVersion(documentID, versionString string) error {
+	versions, err := s.getVersionsByDocumentID(documentID)
+	if err != nil {
+		return err
+	}
+	if len(versions) == 0 {
+		return errors.New("no versions to delete")
+	}
+
+	var target *models.Version
+	for i := range versions {
+		if versions[i].Version == versionString {
+			target = &versions[i]
+			break
+		}
+	}
+	if target == nil {
+		return errors.New("version not found")
+	}
+
+	// Delete the Redis key for the version
+	versionKey := fmt.Sprintf("version:%s:%s", target.DocumentID, target.ID)
+	if err := database.GetRedisClient().Del(database.GetContext(), versionKey).Err(); err != nil {
+		return err
+	}
+
+	// If that was the only version, nothing more to do
+	if len(versions) == 1 {
+		return nil
+	}
+
+	// If deleted version was latest, recompute latest (newest CreatedAt)
+	if target.IsLatest {
+		var newest *models.Version
+		for i := range versions {
+			if versions[i].ID == target.ID { // skip deleted
+				continue
+			}
+			if newest == nil || versions[i].CreatedAt.After(newest.CreatedAt) {
+				newest = &versions[i]
+			}
+		}
+		if newest != nil {
+			// Clear all IsLatest flags first
+			for i := range versions {
+				if versions[i].ID == target.ID { // skip deleted
+					continue
+				}
+				versions[i].IsLatest = false
+				s.saveVersion(&versions[i])
+			}
+			newest.IsLatest = true
+			if err := s.saveVersion(newest); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}

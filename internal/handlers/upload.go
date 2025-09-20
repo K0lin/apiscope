@@ -7,6 +7,7 @@ import (
 	"APIScope/internal/utils"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -62,7 +63,7 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		if err != nil {
 			fmt.Printf("File upload error: %v\n", err)
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "Please provide either a file or YAML content. Error: " + err.Error(),
+				"error":   "Please provide either a file or YAML content. Error: " + err.Error(),
 				"success": false,
 			})
 			return
@@ -72,7 +73,7 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 
 		if file.Size > h.config.MaxFileSize {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "File too large. Maximum size: " + strconv.FormatInt(h.config.MaxFileSize/(1024*1024), 10) + "MB",
+				"error":   "File too large. Maximum size: " + strconv.FormatInt(h.config.MaxFileSize/(1024*1024), 10) + "MB",
 				"success": false,
 			})
 			return
@@ -81,7 +82,7 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		fileContent, err := file.Open()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Error reading file",
+				"error":   "Error reading file",
 				"success": false,
 			})
 			return
@@ -92,7 +93,7 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		_, err = fileContent.Read(content)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Error reading file content",
+				"error":   "Error reading file content",
 				"success": false,
 			})
 			return
@@ -101,10 +102,16 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 
 	err = utils.ValidateOpenAPIContent(content)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid OpenAPI document: " + err.Error(),
-			"success": false,
-		})
+		// If the client expects JSON (AJAX/API), respond JSON; otherwise redirect with message
+		if c.GetHeader("Accept") == "application/json" || c.Query("ajax") == "1" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "Invalid OpenAPI document: " + err.Error(),
+				"success": false,
+			})
+		} else {
+			// Redirect back with message and type=error
+			c.Redirect(http.StatusFound, "/?message="+url.QueryEscape("Invalid OpenAPI document: "+err.Error())+"&type=error")
+		}
 		return
 	}
 
@@ -116,7 +123,7 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		doc, err = h.docService.GetDocumentByID(documentID)
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{
-				"error": "Document not found: " + err.Error(),
+				"error":   "Document not found: " + err.Error(),
 				"success": false,
 			})
 			return
@@ -135,7 +142,7 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 		doc, err = h.docService.CreateDocument(name, description)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Error creating document: " + err.Error(),
+				"error":   "Error creating document: " + err.Error(),
 				"success": false,
 			})
 			return
@@ -151,7 +158,7 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 	filePath, err := h.storageService.SaveFile(doc.ID, versionID, content)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Error saving file: " + err.Error(),
+			"error":   "Error saving file: " + err.Error(),
 			"success": false,
 		})
 		return
@@ -160,7 +167,7 @@ func (h *UploadHandler) HandleUpload(c *gin.Context) {
 	version, err := h.docService.AddVersion(doc.ID, filePath, customVersion)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Error creating version: " + err.Error(),
+			"error":   "Error creating version: " + err.Error(),
 			"success": false,
 		})
 		return
