@@ -12,6 +12,8 @@ A modern, web-based OpenAPI documentation platform built with Go and Gin. Upload
 - **⬇️ Version Download (Optional)**: Download the raw stored YAML for the currently selected version.
 - **🛠️ SDK Generation**: Generate client SDKs in multiple languages via OpenAPI Generator (toggleable).
 - **🧩 Live Servers Editing (Optional)**: Temporarily add/remove `servers` entries client‑side for quick local testing (non‑persistent) and download modified spec.
+- **🔁 Auto Server Origin Adjust (Optional)**: When enabled, the first server entry matching the spec's original host:port is auto-rewritten to the current viewer origin (helps when specs hardcode a different localhost port).
+ - **🚫 Strip Servers (Optional)**: Completely remove all `servers` entries from displayed specs (read-only view, disables Try It Out requests, overrides server editing & auto-adjust).
 - **🌐 CORS Configuration**: Fine‑grained control over origins, methods, headers, credentials, and max age.
 - **� File Storage**: Local organized storage per document/version ID.
 - **⚡ Redis Metadata**: Fast document + version metadata tracking in Redis.
@@ -189,6 +191,9 @@ apiscope/
 | `ALLOW_VERSION_DELETION` | `false` | Enable Delete Version button/API |
 | `ALLOW_VERSION_DOWNLOAD` | `true` | Enable Download Version button/API |
 | `ALLOW_SERVER_EDITING` | `false` | Enable client-side servers editor |
+| `AUTO_ADJUST_SERVER_ORIGIN` | `false` | Auto-rewrite first server origin to current host/port |
+| `STRIP_OPENAPI_SERVERS` | `false` | Remove all servers and disable Try It Out |
+| `AUTO_ADJUST_SERVER_ORIGIN` | `false` | Auto-rewrite first server URL origin to current host/port |
 | `ALLOWED_ORIGINS` | `*` | Comma-separated allowed CORS origins |
 | `CORS_ALLOW_CREDENTIALS` | `false` | Allow credentialed CORS requests |
 | `CORS_ALLOWED_METHODS` | defaults list | Allowed CORS methods |

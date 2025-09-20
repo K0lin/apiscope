@@ -142,6 +142,8 @@ func (h *ViewerHandler) ViewDocument(c *gin.Context) {
 		"AllowVersionDeletion":    h.config.AllowVersionDeletion,
 		"AllowVersionDownload":    h.config.AllowVersionDownload,
 		"AllowServerEditing":      h.config.AllowServerEditing,
+		"AutoAdjustServerOrigin":  h.config.AutoAdjustServerOrigin,
+		"StripServers":            h.config.StripServers,
 	}
 
 	c.HTML(http.StatusOK, "viewer.html", templateData)
