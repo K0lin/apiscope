@@ -212,6 +212,9 @@
                             {{end}}
                         </select>
                         <button class="btn btn-primary" onclick="showVersionForm()">+ Add New Version</button>
+                        {{if .AllowVersionDownload}}
+                        <button class="btn btn-secondary" id="download-version-btn" onclick="downloadSelectedVersion()">Download</button>
+                        {{end}}
                         {{if .AllowVersionDeletion}}
                         <button class="btn btn-danger" id="delete-version-btn" onclick="deleteSelectedVersion()">Delete Version</button>
                         {{end}}
@@ -228,6 +231,9 @@
                     <div class="version-selector">
                         <label style="font-weight: 600; color: #374151; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Version: {{.SelectedVersion}}</label>
                         <button class="btn btn-primary" onclick="showVersionForm()">+ Add New Version</button>
+                        {{if .AllowVersionDownload}}
+                        <button class="btn btn-secondary" id="download-version-btn-single" onclick="downloadSelectedVersion()" {{if not .SelectedVersion}}disabled{{end}}>Download</button>
+                        {{end}}
                         {{if .AllowVersionDeletion}}
                         <button class="btn btn-danger" id="delete-version-btn-single" onclick="deleteSelectedVersion()" {{if not .SelectedVersion}}disabled{{end}}>Delete Version</button>
                         {{end}}
@@ -243,6 +249,20 @@
                     {{end}}
 
                     <div id="swagger-ui"></div>
+                    {{if .AllowServerEditing}}
+                    <div class="management-section" style="margin:1rem;">
+                        <h4 style="margin:0 0 0.75rem 0;">Servers (local edit)</h4>
+                        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.75rem;">
+                            <input type="text" id="server-url" placeholder="https://api.example.com" class="endpoint-input" style="flex:1; min-width:240px;" />
+                            <input type="text" id="server-desc" placeholder="Description (optional)" class="endpoint-input" style="flex:1; min-width:200px;" />
+                            <button class="btn btn-secondary" type="button" onclick="addServer()">Add</button>
+                            <button class="btn btn-secondary" type="button" onclick="resetServers()">Reset</button>
+                        </div>
+                        <div id="servers-list" style="font-size:0.8rem; display:flex; flex-direction:column; gap:0.4rem;"></div>
+                        <p style="color:#6b7280; font-size:0.7rem; margin-top:0.5rem;">Changes apply only in your browser (not persisted). Reload resets unless you download modified spec.</p>
+                        <button class="btn btn-success" type="button" onclick="downloadCurrentSpec()" style="margin-top:0.5rem;">Download Modified Spec</button>
+                    </div>
+                    {{end}}
                 </div>
             {{else}}
                 <div class="alert alert-info">
@@ -354,7 +374,9 @@
     {{end}}
 
     <script>
-        let swaggerUI;
+    let swaggerUI;
+    let originalSpec = null;
+    let workingSpec = null;
 
         // Initialize Swagger UI
         function initSwaggerUI() {
@@ -392,6 +414,11 @@
                         validatorUrl: null,
                         tryItOutEnabled: true
                     });
+                    originalSpec = JSON.parse(JSON.stringify(parsedSpec));
+                    workingSpec = parsedSpec;
+                    if (window.APISCOPE_CFG && window.APISCOPE_CFG.allowServerEditing) {
+                        renderServersList();
+                    }
                 } catch (e) {
                     console.error('Swagger UI Error:', e);
                     document.getElementById('swagger-ui').innerHTML =
@@ -787,7 +814,7 @@
         }
 
         // Placeholder deletion logic (backend endpoint not yet implemented)
-        async function deleteSelectedVersion() {
+    async function deleteSelectedVersion() {
             const allow = {{if .AllowVersionDeletion}}true{{else}}false{{end}};
             if (!allow) return;
             const select = document.getElementById('version-select');
@@ -818,6 +845,107 @@
                 window.location.href = url.toString();
             } catch (e) {
                 alert('Error deleting version: ' + e.message);
+            }
+        }
+
+        // ================= Servers Editing (client-side only) =================
+        function ensureSpecServers() {
+            if (!workingSpec.servers) workingSpec.servers = [];
+        }
+
+        function renderServersList() {
+            if (!window.APISCOPE_CFG || !window.APISCOPE_CFG.allowServerEditing) return;
+            ensureSpecServers();
+            const listEl = document.getElementById('servers-list');
+            if (!listEl) return;
+            listEl.innerHTML = '';
+            if (!workingSpec.servers.length) {
+                listEl.innerHTML = '<em style="color:#6b7280;">No servers defined</em>';
+                return;
+            }
+            workingSpec.servers.forEach((srv, idx) => {
+                const row = document.createElement('div');
+                row.style.display = 'flex';
+                row.style.alignItems = 'center';
+                row.style.gap = '0.5rem';
+                row.innerHTML = `
+                    <code style="background:rgba(243,244,246,0.8); padding:0.25rem 0.4rem; border-radius:4px;">${srv.url}</code>
+                    <span style="flex:1; color:#374151;">${srv.description ? srv.description : ''}</span>
+                    <button class="btn btn-danger" style="padding:0.25rem 0.5rem; font-size:0.7rem;" data-idx="${idx}">X</button>
+                `;
+                row.querySelector('button').addEventListener('click', (e)=>{
+                    const i = parseInt(e.target.getAttribute('data-idx'));
+                    workingSpec.servers.splice(i,1);
+                    applyServersChange();
+                });
+                listEl.appendChild(row);
+            });
+        }
+
+        function applyServersChange() {
+            // Update Swagger UI spec in place
+            swaggerUI.specActions.updateJsonSpec(workingSpec);
+            renderServersList();
+        }
+
+        function addServer() {
+            if (!window.APISCOPE_CFG || !window.APISCOPE_CFG.allowServerEditing) return;
+            const urlInput = document.getElementById('server-url');
+            const descInput = document.getElementById('server-desc');
+            const urlVal = (urlInput.value || '').trim();
+            if (!urlVal) { alert('Server URL required'); return; }
+            try { new URL(urlVal); } catch { alert('Invalid URL'); return; }
+            ensureSpecServers();
+            workingSpec.servers.push({ url: urlVal, description: (descInput.value||'').trim() });
+            urlInput.value=''; descInput.value='';
+            applyServersChange();
+        }
+
+        function resetServers() {
+            if (!confirm('Reset servers to original specification?')) return;
+            workingSpec.servers = originalSpec && originalSpec.servers ? JSON.parse(JSON.stringify(originalSpec.servers)) : [];
+            applyServersChange();
+        }
+
+        function downloadCurrentSpec() {
+            const blob = new Blob([JSON.stringify(workingSpec, null, 2)], {type:'application/json'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'openapi-modified.json';
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+        }
+
+        // Expose config safely (consolidated)
+        window.APISCOPE_CFG = {
+            openapiGeneratorEnabled: {{if .OpenAPIGeneratorEnabled}}true{{else}}false{{end}},
+            allowVersionDeletion: {{if .AllowVersionDeletion}}true{{else}}false{{end}},
+            allowVersionDownload: {{if .AllowVersionDownload}}true{{else}}false{{end}},
+            allowServerEditing: {{if .AllowServerEditing}}true{{else}}false{{end}}
+        };
+
+        async function downloadSelectedVersion() {
+            const allow = {{if .AllowVersionDownload}}true{{else}}false{{end}};
+            if (!allow) return;
+            const select = document.getElementById('version-select');
+            const documentID = "{{.DocumentID}}";
+            let version = "{{.SelectedVersion}}";
+            if (select) { version = select.value; }
+            if (!version) { alert('No version selected to download.'); return; }
+            const url = `/api/document/${documentID}/version/${encodeURIComponent(version)}/download`;
+            try {
+                const resp = await fetch(url);
+                if (!resp.ok) { alert('Download failed: ' + resp.status); return; }
+                const blob = await resp.blob();
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `${documentID}-${version}.yaml`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+            } catch (e) {
+                alert('Error downloading version: ' + e.message);
             }
         }
     </script>

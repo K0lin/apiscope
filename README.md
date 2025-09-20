@@ -1,17 +1,22 @@
 # APIScope
 
-A modern, web-based OpenAPI documentation platform built with Go and Gin. Upload, version, and share your API specifications with beautiful, interactive Swagger UI documentation.
+A modern, web-based OpenAPI documentation platform built with Go and Gin. Upload, validate, version, and share your API specifications with beautiful, interactive Swagger UI documentation. Includes optional SDK generation, version lifecycle operations, live server editing, and configurable CORS.
 
 ## Features
 
-- **📤 Easy Upload**: Upload OpenAPI/Swagger files or paste YAML/JSON content directly
-- **🔗 Shareable Links**: Generate permanent, shareable links for your API documentation
-- **📋 Version Control**: Support for multiple versions of your API specifications
-- **👁️ Interactive Docs**: Beautiful Swagger UI for testing and exploring your APIs
-- **🛠️ SDK Generation**: Generate client SDKs in multiple programming languages using OpenAPI Generator
-- **💾 File Storage**: Secure local file storage with automatic organization
-- **🗄️ Database Integration**: Redis for fast metadata and version tracking
-- **🎨 Modern UI**: Clean, professional interface with responsive design
+- **📤 Easy Upload**: Upload OpenAPI/Swagger files or paste YAML/JSON content directly.
+- **🧪 Validation**: Early validation rejects malformed or structurally empty specs (ensures `openapi`/`swagger`, `info`, and minimal paths/components).
+- **🔗 Shareable Links**: Generate permanent, shareable links for your API documentation.
+- **📋 Version Control**: Multiple versions per document with automatic latest tracking and chronological ordering.
+- **♻️ Version Deletion (Optional)**: Delete individual versions safely with automatic re‑promotion of newest remaining version.
+- **⬇️ Version Download (Optional)**: Download the raw stored YAML for the currently selected version.
+- **🛠️ SDK Generation**: Generate client SDKs in multiple languages via OpenAPI Generator (toggleable).
+- **🧩 Live Servers Editing (Optional)**: Temporarily add/remove `servers` entries client‑side for quick local testing (non‑persistent) and download modified spec.
+- **🌐 CORS Configuration**: Fine‑grained control over origins, methods, headers, credentials, and max age.
+- **� File Storage**: Local organized storage per document/version ID.
+- **⚡ Redis Metadata**: Fast document + version metadata tracking in Redis.
+- **🩺 Health Endpoint**: Simple `/health` JSON endpoint for monitoring.
+- **🎨 Modern UI**: Clean, responsive, minimal dependencies.
 
 ## Quick Start
 
@@ -51,9 +56,21 @@ A modern, web-based OpenAPI documentation platform built with Go and Gin. Upload
    REDIS_PASSWORD=
    STORAGE_PATH=./storage/documents
 
-   # OpenAPI Generator Configuration
+   # Feature Toggles
    OPENAPI_GENERATOR_ENABLED=true
    OPENAPI_GENERATOR_SERVER=https://api.openapi-generator.tech
+   ALLOW_VERSION_DELETION=false
+   ALLOW_VERSION_DOWNLOAD=true
+   ALLOW_SERVER_EDITING=false
+
+   # CORS
+   ALLOWED_ORIGINS=*
+   CORS_ALLOW_CREDENTIALS=false
+   CORS_ALLOWED_METHODS=GET,POST,PUT,PATCH,DELETE,OPTIONS
+   CORS_ALLOWED_HEADERS=Authorization,Content-Type,Accept,Origin
+   CORS_EXPOSE_HEADERS=Content-Length
+   CORS_MAX_AGE=600
+   CORS_DEBUG=false
    ```
 
 5. **Run the application:**
@@ -83,9 +100,11 @@ A modern, web-based OpenAPI documentation platform built with Go and Gin. Upload
 
 ### Managing Versions
 
-- View all versions of a document from the document viewer
-- Add new versions using the "Add New Version" button
-- Each version gets a unique URL for sharing
+- Versions sorted newest-first.
+- Latest is auto-flagged; adding a new version promotes it.
+- Selecting an older version updates the view while preserving dropdown selection.
+- (Optional) If `ALLOW_VERSION_DELETION=true`, a Delete button appears to remove the selected version (cannot undo). Latest is re‑assigned automatically if removed.
+- (Optional) If `ALLOW_VERSION_DOWNLOAD=true`, a Download button provides the raw YAML file of the selected version.
 
 ### SDK Generation
 
@@ -107,13 +126,32 @@ When enabled, APIScope provides built-in SDK generation capabilities:
 
 **Note:** For the SDK generation to work properly when using localhost, ensure your OpenAPI Generator server can reach your APIScope instance. Consider using network IP addresses instead of localhost when deploying.
 
-### API Endpoints
+### API Endpoints (Core)
 
 APIScope provides REST API endpoints for programmatic access:
 
-- `GET /api/document/{id}/content` - Get document content
-- `GET /api/document/{id}/content?version={version}` - Get specific version
-- `GET /api/document/{id}/versions` - List all versions
+- `GET /api/document/{id}/content` – Get latest version content (YAML/JSON as originally stored)
+- `GET /api/document/{id}/content?version={version}` – Get a specific version
+- `GET /api/document/{id}/versions` – List all versions
+- `DELETE /api/document/{id}/version/{version}` – (If enabled) delete specific version
+- `GET /api/document/{id}/version/{version}/download` – (If enabled) download stored file
+- `GET /health` – Health status JSON
+
+### Live Servers Editing (Client‑Side)
+If `ALLOW_SERVER_EDITING=true` you can add/remove `servers` entries directly in the viewer for ad‑hoc testing (not persisted). You may then download the modified spec for local reuse.
+
+### CORS Configuration
+Customize CORS via environment variables. Example tightened production config:
+```env
+ALLOWED_ORIGINS=https://docs.example.com,https://app.example.com
+CORS_ALLOW_CREDENTIALS=true
+```
+Notes:
+- When `CORS_ALLOW_CREDENTIALS=true`, avoid wildcard `*`; the middleware will echo the request origin.
+- Preflight cache duration controlled by `CORS_MAX_AGE` (seconds).
+
+### Health Check
+`GET /health` returns a simple JSON body: `{ "status": "ok", "time": "<RFC3339>" }`.
 
 ## Project Structure
 
@@ -138,22 +176,33 @@ apiscope/
 
 ## Configuration
 
-### Environment Variables
+### Core Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `8080` | Server port |
 | `REDIS_ADDR` | `localhost:6379` | Redis server address |
-| `REDIS_PASSWORD` | `` | Redis password (if required) |
-| `STORAGE_PATH` | `./storage/documents` | File storage directory |
-| `OPENAPI_GENERATOR_ENABLED` | `false` | Enable/disable SDK generation feature |
-| `OPENAPI_GENERATOR_SERVER` | `` | URL of OpenAPI Generator server |
+| `REDIS_PASSWORD` | (empty) | Redis password (if required) |
+| `STORAGE_PATH` | `./storage/documents` | File storage root |
+| `OPENAPI_GENERATOR_ENABLED` | `false` | Toggle SDK generation feature |
+| `OPENAPI_GENERATOR_SERVER` | public generator URL | OpenAPI Generator server URL |
+| `ALLOW_VERSION_DELETION` | `false` | Enable Delete Version button/API |
+| `ALLOW_VERSION_DOWNLOAD` | `true` | Enable Download Version button/API |
+| `ALLOW_SERVER_EDITING` | `false` | Enable client-side servers editor |
+| `ALLOWED_ORIGINS` | `*` | Comma-separated allowed CORS origins |
+| `CORS_ALLOW_CREDENTIALS` | `false` | Allow credentialed CORS requests |
+| `CORS_ALLOWED_METHODS` | defaults list | Allowed CORS methods |
+| `CORS_ALLOWED_HEADERS` | defaults list | Allowed CORS request headers |
+| `CORS_EXPOSE_HEADERS` | `Content-Length` | Exposed response headers |
+| `CORS_MAX_AGE` | `600` | Preflight cache seconds |
+| `CORS_DEBUG` | `false` | Verbose CORS logging |
 
-### File Upload Limits
+### File Upload & Validation
 
 - **Maximum file size**: 50MB
 - **Supported formats**: YAML (.yaml, .yml), JSON (.json)
-- **OpenAPI versions**: 2.x (Swagger) and 3.x supported
+- **OpenAPI versions**: Swagger 2.x and OpenAPI 3.x supported
+- **Validation rules**: Ensures format correctness, required `info` fields, version field, and at least one of `paths` or `components`.
 
 ## Development
 
@@ -173,10 +222,9 @@ go test ./...
 
 This project follows standard Go conventions and uses:
 
-- `gofmt` for code formatting
-- Standard Go project layout
+- `gofmt` for formatting
 - Gin web framework
-- GORM for database operations
+- Redis for metadata (no ORM layer / GORM removed from docs)
 
 ## Contributing
 
@@ -192,12 +240,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Technologies Used
 
-- **Backend**: Go, Gin web framework
-- **Database**: Redis for high-performance data storage
-- **Frontend**: HTML5, CSS3, Vanilla JavaScript
-- **API Documentation**: Swagger UI
-- **SDK Generation**: OpenAPI Generator integration
-- **File Processing**: YAML/JSON parsing
+- **Backend**: Go (Gin)
+- **Data Store**: Redis (metadata & version tracking)
+- **Storage**: Local filesystem (YAML/JSON specs)
+- **Documentation UI**: Swagger UI
+- **SDK Generation**: OpenAPI Generator (optional)
+- **Validation**: YAML & JSON parsing + structural checks
+- **UI**: HTML5, CSS3, Vanilla JS
 
 ## Support
 

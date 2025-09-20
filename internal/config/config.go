@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -20,6 +21,15 @@ type Config struct {
 	OpenAPIGeneratorEnabled bool
 	OpenAPIGeneratorServer  string
 	AllowVersionDeletion    bool
+	AllowVersionDownload    bool
+	AllowServerEditing      bool
+	AllowedOrigins          []string
+	CORSAllowCredentials    bool
+	CORSAllowedMethods      []string
+	CORSAllowedHeaders      []string
+	CORSExposeHeaders       []string
+	CORSMaxAgeSeconds       int
+	CORSDebug               bool
 }
 
 func Load() *Config {
@@ -32,6 +42,19 @@ func Load() *Config {
 	openAPIEnabled := getBoolEnv("OPENAPI_GENERATOR_ENABLED", false)
 	openAPIServer := getEnv("OPENAPI_GENERATOR_SERVER", "https://api.openapi-generator.tech")
 	allowVersionDeletion := getBoolEnv("ALLOW_VERSION_DELETION", false)
+	allowVersionDownload := getBoolEnv("ALLOW_VERSION_DOWNLOAD", true)
+	allowServerEditing := getBoolEnv("ALLOW_SERVER_EDITING", false)
+	allowedOriginsRaw := getEnv("ALLOWED_ORIGINS", "*")
+	corsAllowCreds := getBoolEnv("CORS_ALLOW_CREDENTIALS", false)
+	allowedMethodsRaw := getEnv("CORS_ALLOWED_METHODS", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
+	allowedHeadersRaw := getEnv("CORS_ALLOWED_HEADERS", "Authorization,Content-Type,Accept,Origin")
+	exposeHeadersRaw := getEnv("CORS_EXPOSE_HEADERS", "Content-Length")
+	corsMaxAgeStr := getEnv("CORS_MAX_AGE", "600")
+	corsDebug := getBoolEnv("CORS_DEBUG", false)
+	corsMaxAge := 600
+	if v, err := strconv.Atoi(corsMaxAgeStr); err == nil && v >= 0 {
+		corsMaxAge = v
+	}
 
 	return &Config{
 		Port:                    getEnv("PORT", "8080"),
@@ -44,7 +67,30 @@ func Load() *Config {
 		OpenAPIGeneratorEnabled: openAPIEnabled,
 		OpenAPIGeneratorServer:  openAPIServer,
 		AllowVersionDeletion:    allowVersionDeletion,
+		AllowVersionDownload:    allowVersionDownload,
+		AllowServerEditing:      allowServerEditing,
+		AllowedOrigins:          parseCSV(allowedOriginsRaw),
+		CORSAllowCredentials:    corsAllowCreds,
+		CORSAllowedMethods:      parseCSV(allowedMethodsRaw),
+		CORSAllowedHeaders:      parseCSV(allowedHeadersRaw),
+		CORSExposeHeaders:       parseCSV(exposeHeadersRaw),
+		CORSMaxAgeSeconds:       corsMaxAge,
+		CORSDebug:               corsDebug,
 	}
+}
+
+func parseCSV(s string) []string {
+	var res []string
+	for _, part := range strings.Split(s, ",") {
+		p := strings.TrimSpace(part)
+		if p != "" {
+			res = append(res, p)
+		}
+	}
+	if len(res) == 0 {
+		return []string{"*"}
+	}
+	return res
 }
 
 func getEnv(key, defaultValue string) string {

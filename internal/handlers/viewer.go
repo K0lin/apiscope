@@ -140,6 +140,8 @@ func (h *ViewerHandler) ViewDocument(c *gin.Context) {
 		"OpenAPIGeneratorEnabled": h.config.OpenAPIGeneratorEnabled,
 		"OpenAPIGeneratorServer":  h.config.OpenAPIGeneratorServer,
 		"AllowVersionDeletion":    h.config.AllowVersionDeletion,
+		"AllowVersionDownload":    h.config.AllowVersionDownload,
+		"AllowServerEditing":      h.config.AllowServerEditing,
 	}
 
 	c.HTML(http.StatusOK, "viewer.html", templateData)
