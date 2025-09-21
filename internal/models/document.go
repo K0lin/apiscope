@@ -11,6 +11,7 @@ type Document struct {
 	CreatedAt   time.Time `json:"created_at"`
 	ExpiresAt   time.Time `json:"expires_at"`
 	IsActive    bool      `json:"is_active"`
+	ShareSlug   string    `json:"share_slug"`
 	Versions    []Version `json:"versions"`
 }
 

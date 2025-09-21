@@ -25,6 +25,7 @@ type Config struct {
 	AllowServerEditing      bool
 	AutoAdjustServerOrigin  bool
 	StripServers            bool
+	AllowCustomShareLink    bool
 	AllowedOrigins          []string
 	CORSAllowCredentials    bool
 	CORSAllowedMethods      []string
@@ -48,6 +49,7 @@ func Load() *Config {
 	allowServerEditing := getBoolEnv("ALLOW_SERVER_EDITING", false)
 	autoAdjustServerOrigin := getBoolEnv("AUTO_ADJUST_SERVER_ORIGIN", false)
 	stripServers := getBoolEnv("STRIP_OPENAPI_SERVERS", false)
+	allowCustomShare := getBoolEnv("ALLOW_CUSTOM_SHARE_LINK", false)
 	allowedOriginsRaw := getEnv("ALLOWED_ORIGINS", "*")
 	corsAllowCreds := getBoolEnv("CORS_ALLOW_CREDENTIALS", false)
 	allowedMethodsRaw := getEnv("CORS_ALLOWED_METHODS", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
@@ -75,6 +77,7 @@ func Load() *Config {
 		AllowServerEditing:      allowServerEditing,
 		AutoAdjustServerOrigin:  autoAdjustServerOrigin,
 		StripServers:            stripServers,
+		AllowCustomShareLink:    allowCustomShare,
 		AllowedOrigins:          parseCSV(allowedOriginsRaw),
 		CORSAllowCredentials:    corsAllowCreds,
 		CORSAllowedMethods:      parseCSV(allowedMethodsRaw),

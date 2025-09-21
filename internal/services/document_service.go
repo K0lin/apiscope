@@ -77,6 +77,44 @@ func (s *DocumentService) GetDocumentByID(id string) (*models.Document, error) {
 	return &doc, nil
 }
 
+// GetDocumentByShareSlug retrieves a document using its share slug.
+func (s *DocumentService) GetDocumentByShareSlug(slug string) (*models.Document, error) {
+	if slug == "" {
+		return nil, errors.New("empty slug")
+	}
+	slugKey := fmt.Sprintf("share:%s", slug)
+	docID, err := database.GetRedisClient().Get(database.GetContext(), slugKey).Result()
+	if err != nil || docID == "" {
+		return nil, errors.New("share link not found")
+	}
+	return s.GetDocumentByID(docID)
+}
+
+// SetShareSlug assigns a one-time share slug to a document.
+func (s *DocumentService) SetShareSlug(doc *models.Document, slug string) error {
+	if doc.ShareSlug != "" {
+		return errors.New("share slug already set")
+	}
+	// Ensure slug not used
+	slugKey := fmt.Sprintf("share:%s", slug)
+	exists, _ := database.GetRedisClient().Exists(database.GetContext(), slugKey).Result()
+	if exists == 1 {
+		return errors.New("slug already taken")
+	}
+	doc.ShareSlug = slug
+	// Persist updated doc
+	docJSON, err := json.Marshal(doc)
+	if err != nil {
+		return err
+	}
+	key := fmt.Sprintf("document:%s", doc.ID)
+	if err := database.GetRedisClient().Set(database.GetContext(), key, docJSON, time.Until(doc.ExpiresAt)).Err(); err != nil {
+		return err
+	}
+	// Map slug -> docID (same TTL as doc)
+	return database.GetRedisClient().Set(database.GetContext(), slugKey, doc.ID, time.Until(doc.ExpiresAt)).Err()
+}
+
 func (s *DocumentService) DeleteDocument(id string) error {
 	// Get document first to update it
 	doc, err := s.GetDocumentByID(id)

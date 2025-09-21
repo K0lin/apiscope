@@ -199,6 +199,28 @@
                 </div>
             </div>
 
+            {{if and .AllowCustomShareLink (not .ShareSlug)}}
+            <div class="management-section" style="margin-bottom:2rem;">
+                <h4 style="margin:0 0 0.75rem 0;">Create Share Link</h4>
+                <p style="margin:0 0 0.75rem 0; font-size:0.8rem; color:#374151;">Choose a custom slug (3-40 chars, a-z, 0-9, dashes) or leave empty to auto-generate. This can only be set once.</p>
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                    <input type="text" id="share-slug-input" class="endpoint-input" placeholder="e.g. billing-api" style="flex:1; min-width:220px;" />
+                    <button class="btn btn-secondary" type="button" onclick="generateRandomSlug()">Generate Random</button>
+                    <button class="btn btn-success" type="button" onclick="saveShareSlug()">Save Share Link</button>
+                </div>
+                <div id="share-slug-feedback" style="margin-top:0.5rem; font-size:0.75rem; color:#6b7280;"></div>
+            </div>
+            {{else if .ShareSlug}}
+            <div class="management-section" style="margin-bottom:2rem;">
+                <h4 style="margin:0 0 0.5rem 0;">Share Link</h4>
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                    <input type="text" readonly id="share-slug-final" class="endpoint-input" value="" style="flex:1; min-width:260px;" onclick="copyToClipboard(this)" />
+                    <button class="btn btn-secondary" type="button" onclick="copyShareLink()">Copy</button>
+                </div>
+                <p style="margin:0.5rem 0 0 0; font-size:0.7rem; color:#6b7280;">Immutable once set. Use this endpoint to share read-only access.</p>
+            </div>
+            {{end}}
+
             {{if .Content}}
                 <div class="swagger-container">
                     {{if .Versions}}
@@ -382,6 +404,8 @@
          data-stripservers="{{if .StripServers}}true{{else}}false{{end}}"
         data-doc="{{.DocumentID}}"
         data-ver="{{.SelectedVersion}}"
+    data-shareenabled="{{if .AllowCustomShareLink}}true{{else}}false{{end}}"
+    data-shareslug="{{.ShareSlug}}"
         style="display:none;"></div>
 
     <script>
@@ -962,6 +986,8 @@
                 stripServers: el.dataset.stripservers === 'true',
                 documentID: el.dataset.doc || '',
                 selectedVersion: el.dataset.ver || ''
+                ,shareEnabled: el.dataset.shareenabled === 'true'
+                ,shareSlug: el.dataset.shareslug || ''
             };
         })();
 
@@ -1020,6 +1046,48 @@
                 alert('Error downloading version: ' + e.message);
             }
         }
+
+        // ================= Share Link Feature =================
+        function generateRandomSlug(){
+            // Client-side generation request: rely on backend if we save with empty slug; here just display a temporary suggestion
+            const rand = Math.random().toString(16).substring(2,6)+'-'+Math.random().toString(16).substring(2,6);
+            const input = document.getElementById('share-slug-input');
+            if(input){ input.value = rand; }
+        }
+        async function saveShareSlug(){
+            if(!window.APISCOPE_CFG || !window.APISCOPE_CFG.shareEnabled){return;}
+            const input = document.getElementById('share-slug-input');
+            let slug = input ? (input.value||'').trim() : '';
+            const docID = window.APISCOPE_CFG.documentID;
+            const btns = document.querySelectorAll('button[onclick="saveShareSlug()"]');
+            btns.forEach(b=>b.disabled=true);
+            try {
+                const resp = await fetch(`/api/document/${docID}/share`, {method:'POST', headers:{'Content-Type':'application/json'}, body: slug? JSON.stringify({slug}) : '{}'});
+                const data = await resp.json().catch(()=>({}));
+                if(!resp.ok){
+                    const fb = document.getElementById('share-slug-feedback');
+                    if(fb){ fb.style.color = '#dc2626'; fb.textContent = data.error || ('Error '+resp.status); }
+                } else {
+                    // Reload to show final link
+                    window.location.reload();
+                }
+            } catch(e){
+                const fb = document.getElementById('share-slug-feedback');
+                if(fb){ fb.style.color = '#dc2626'; fb.textContent = e.message; }
+            } finally {
+                btns.forEach(b=>b.disabled=false);
+            }
+        }
+        function copyShareLink(){
+            const input = document.getElementById('share-slug-final');
+            if(input){ copyToClipboard(input); }
+        }
+        document.addEventListener('DOMContentLoaded', function(){
+            if(window.APISCOPE_CFG && window.APISCOPE_CFG.shareSlug){
+                const input = document.getElementById('share-slug-final');
+                if(input){ input.value = window.location.origin + '/share/' + window.APISCOPE_CFG.shareSlug; }
+            }
+        });
     </script>
 </body>
 

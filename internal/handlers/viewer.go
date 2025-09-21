@@ -133,6 +133,7 @@ func (h *ViewerHandler) ViewDocument(c *gin.Context) {
 		"Version":                 targetVersion,
 		"Content":                 content,
 		"DocumentID":              documentID,
+		"ShareSlug":               doc.ShareSlug,
 		"SelectedVersion":         selectedVersion,
 		"Versions":                versions,
 		"Message":                 message,
@@ -144,9 +145,26 @@ func (h *ViewerHandler) ViewDocument(c *gin.Context) {
 		"AllowServerEditing":      h.config.AllowServerEditing,
 		"AutoAdjustServerOrigin":  h.config.AutoAdjustServerOrigin,
 		"StripServers":            h.config.StripServers,
+		"AllowCustomShareLink":    h.config.AllowCustomShareLink,
 	}
 
 	c.HTML(http.StatusOK, "viewer.html", templateData)
+}
+
+// ViewDocumentByShare resolves a share slug and delegates to ViewDocument by internally setting the document id.
+func (h *ViewerHandler) ViewDocumentByShare(c *gin.Context) {
+	slug := c.Param("slug")
+	if slug == "" {
+		c.HTML(http.StatusNotFound, "error.html", gin.H{"error": "Share link not found", "title": "Not Found"})
+		return
+	}
+	doc, err := h.docService.GetDocumentByShareSlug(slug)
+	if err != nil || doc == nil {
+		c.HTML(http.StatusNotFound, "error.html", gin.H{"error": "Share link not found", "title": "Not Found"})
+		return
+	}
+	// Redirect to canonical view route but preserve that share slug may be used for UI copy
+	c.Redirect(http.StatusFound, fmt.Sprintf("/view/%s", doc.ID))
 }
 
 func (h *ViewerHandler) DeleteDocument(c *gin.Context) {

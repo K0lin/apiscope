@@ -31,7 +31,7 @@ func main() {
 
 	uploadHandler := handlers.NewUploadHandler(docService, storageService, cfg)
 	viewerHandler := handlers.NewViewerHandler(docService, storageService, cfg)
-	apiHandler := handlers.NewApiHandler(docService, storageService, openAPIGeneratorService)
+	apiHandler := handlers.NewApiHandler(docService, storageService, openAPIGeneratorService, cfg)
 
 	router := gin.Default()
 
@@ -129,9 +129,15 @@ func main() {
 
 	router.GET("/view/:id", viewerHandler.ViewDocument)
 	router.DELETE("/view/:id", viewerHandler.DeleteDocument)
+	if cfg.AllowCustomShareLink {
+		router.GET("/share/:slug", viewerHandler.ViewDocumentByShare)
+	}
 
 	router.GET("/api/document/:id/content", apiHandler.GetDocumentContent)
 	router.GET("/api/document/:id/versions", apiHandler.GetDocumentVersions)
+	if cfg.AllowCustomShareLink {
+		router.POST("/api/document/:id/share", apiHandler.SetShareLink)
+	}
 
 	// Basic health endpoint
 	router.GET("/health", func(c *gin.Context) {
