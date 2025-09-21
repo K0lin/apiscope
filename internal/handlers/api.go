@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"APIScope/internal/config"
 	"APIScope/internal/models"
 	"APIScope/internal/services"
+	"APIScope/internal/utils"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,13 +17,15 @@ type ApiHandler struct {
 	docService              *services.DocumentService
 	storageService          *services.StorageService
 	openAPIGeneratorService *services.OpenAPIGeneratorService
+	cfg                     *config.Config
 }
 
-func NewApiHandler(docService *services.DocumentService, storageService *services.StorageService, openAPIGeneratorService *services.OpenAPIGeneratorService) *ApiHandler {
+func NewApiHandler(docService *services.DocumentService, storageService *services.StorageService, openAPIGeneratorService *services.OpenAPIGeneratorService, cfg *config.Config) *ApiHandler {
 	return &ApiHandler{
 		docService:              docService,
 		storageService:          storageService,
 		openAPIGeneratorService: openAPIGeneratorService,
+		cfg:                     cfg,
 	}
 }
 
@@ -272,4 +277,57 @@ func (h *ApiHandler) DeleteDocumentVersion(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "version deleted"})
+}
+
+// SetShareLink assigns a one-time share slug to a document (if feature enabled).
+// POST /api/document/:id/share  body: {"slug":"optional-custom"}
+func (h *ApiHandler) SetShareLink(c *gin.Context) {
+	if h.cfg == nil || !h.cfg.AllowCustomShareLink {
+		c.JSON(http.StatusNotFound, gin.H{"error": "feature disabled"})
+		return
+	}
+	documentID := c.Param("id")
+	doc, err := h.docService.GetDocumentByID(documentID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "document not found"})
+		return
+	}
+	if doc.ShareSlug != "" {
+		c.JSON(http.StatusConflict, gin.H{"error": "share link already set", "share_slug": doc.ShareSlug})
+		return
+	}
+	// Parse body (optional slug)
+	var payload struct {
+		Slug string `json:"slug"`
+	}
+	if c.Request.Body != nil {
+		_ = json.NewDecoder(c.Request.Body).Decode(&payload) // ignore decode errors -> treat as empty
+	}
+	slug := payload.Slug
+	if slug != "" {
+		sanitized, ok := utils.SanitizeSlug(slug)
+		if !ok {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid slug format (3-40 chars, a-z, 0-9, dashes)"})
+			return
+		}
+		slug = sanitized
+	} else {
+		// generate random
+		slug = utils.GenerateShareSlug()
+	}
+	if err := h.docService.SetShareSlug(doc, slug); err != nil {
+		if err.Error() == "slug already taken" {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	fullURL := fmt.Sprintf("%s://%s/share/%s", func() string {
+		if c.Request.TLS != nil {
+			return "https"
+		}
+		return "http"
+	}(), c.Request.Host, slug)
+	c.JSON(http.StatusCreated, gin.H{"share_slug": slug, "url": fullURL})
 }

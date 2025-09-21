@@ -13,8 +13,8 @@ A modern, web-based OpenAPI documentation platform built with Go and Gin. Upload
 - **🛠️ SDK Generation**: Generate client SDKs in multiple languages via OpenAPI Generator (toggleable).
 - **🧩 Live Servers Editing (Optional)**: Temporarily add/remove `servers` entries client‑side for quick local testing (non‑persistent) and download modified spec.
 - **🔁 Auto Server Origin Adjust (Optional)**: When enabled, the first server entry matching the spec's original host:port is auto-rewritten to the current viewer origin (helps when specs hardcode a different localhost port).
- - **🚫 Strip Servers (Optional)**: Completely remove all `servers` entries from displayed specs (read-only view, disables Try It Out requests, overrides server editing & auto-adjust).
 - **🚫 Strip Servers (Optional)**: Completely remove all `servers` entries from displayed specs (read-only view, disables Try It Out requests, overrides server editing & auto-adjust).
+- **🔐 One-Time Share Slug (Optional)**: Allow choosing a memorable or randomly generated share link `/share/{slug}` per document (immutable once set).
 - **🌐 CORS Configuration**: Fine‑grained control over origins, methods, headers, credentials, and max age.
 - **🗄️ File Storage**: Local organized storage per document/version ID.
 - **⚡ Redis Metadata**: Fast document + version metadata tracking in Redis.
@@ -67,6 +67,7 @@ A modern, web-based OpenAPI documentation platform built with Go and Gin. Upload
    ALLOW_SERVER_EDITING=false
    AUTO_ADJUST_SERVER_ORIGIN=false
    STRIP_OPENAPI_SERVERS=false
+   ALLOW_CUSTOM_SHARE_LINK=false
 
    # CORS
    ALLOWED_ORIGINS=*
@@ -141,6 +142,8 @@ APIScope provides REST API endpoints for programmatic access:
 - `DELETE /api/document/{id}/version/{version}` – (If enabled) delete specific version
 - `GET /api/document/{id}/version/{version}/download` – (If enabled) download stored file
 - `GET /health` – Health status JSON
+- `POST /api/document/{id}/share` – (If enabled) set a one-time share slug (body: `{ "slug": "optional-custom" }`) returns `{ share_slug, url }`
+- `GET /share/{slug}` – Resolve a share slug to the underlying document view (redirects to `/view/{id}`)
 
 ### Live Servers Editing (Client‑Side)
 If `ALLOW_SERVER_EDITING=true` you can add/remove `servers` entries directly in the viewer for ad‑hoc testing (not persisted). You may then download the modified spec for local reuse.
@@ -207,6 +210,7 @@ apiscope/
 | `ALLOW_SERVER_EDITING` | `false` | Enable client-side servers editor |
 | `AUTO_ADJUST_SERVER_ORIGIN` | `false` | Auto-rewrite first server origin to current host/port |
 | `STRIP_OPENAPI_SERVERS` | `false` | Strip all servers; disables Try It Out & overrides editing/auto-adjust |
+| `ALLOW_CUSTOM_SHARE_LINK` | `false` | Permit one-time assignment of a custom or generated share slug `/share/{slug}` |
 | `ALLOWED_ORIGINS` | `*` | Comma-separated allowed CORS origins |
 | `CORS_ALLOW_CREDENTIALS` | `false` | Allow credentialed CORS requests |
 | `CORS_ALLOWED_METHODS` | defaults list | Allowed CORS methods |
